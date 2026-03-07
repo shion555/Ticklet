@@ -5,6 +5,8 @@ struct HeaderView: View {
     @Binding var selectedListID: UUID?
     @Binding var filterMode: FilterMode
     let lists: [TaskList]
+    let selectedListName: String
+    let selectedList: TaskList?
     let onCreateList: () -> Void
     let onRenameList: (TaskList) -> Void
     let onDeleteList: (TaskList) -> Void
@@ -12,15 +14,11 @@ struct HeaderView: View {
     let onSortChanged: (SortOption) -> Void
     let currentSort: SortOption
 
-    var selectedList: TaskList? {
-        lists.first { $0.id == selectedListID }
-    }
-
     var body: some View {
         HStack(spacing: 8) {
             // List picker
             Menu {
-                ForEach(lists.sorted(by: { $0.sortOrder < $1.sortOrder })) { list in
+                ForEach(lists) { list in
                     Button {
                         selectedListID = list.id
                     } label: {
@@ -40,7 +38,7 @@ struct HeaderView: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(selectedList?.name ?? "マイタスク")
+                    Text(selectedListName)
                         .font(.headline)
                     Image(systemName: "chevron.down")
                         .font(.caption2)

@@ -16,33 +16,13 @@ struct ContentView: View {
     @State private var showDeleteConfirm = false
     @State private var listToDelete: TaskList?
 
-    private var selectedList: TaskList? {
-        lists.first { $0.id == selectedListID }
-    }
-
-    private var currentSort: SortOption {
-        selectedList?.sort ?? .manual
-    }
-
-    private var activeTasks: [TaskItem] {
-        TaskQueryService.activeTasks(
-            from: allTasks,
-            selectedListID: selectedListID,
-            filterMode: filterMode,
-            sortOption: currentSort
-        )
-    }
-
-    private var completedTasks: [TaskItem] {
-        TaskQueryService.completedTasks(
-            from: allTasks,
+    private var readModel: ContentViewReadModel {
+        ContentViewReadModel(
+            lists: lists,
+            allTasks: allTasks,
             selectedListID: selectedListID,
             filterMode: filterMode
         )
-    }
-
-    private var nextSortOrder: Int {
-        (activeTasks.map(\.sortOrder).max() ?? -1) + 1
     }
 
     var body: some View {
@@ -50,7 +30,9 @@ struct ContentView: View {
             HeaderView(
                 selectedListID: $selectedListID,
                 filterMode: $filterMode,
-                lists: lists,
+                lists: readModel.sortedLists,
+                selectedListName: readModel.selectedListName,
+                selectedList: readModel.selectedList,
                 onCreateList: { showCreateList = true },
                 onRenameList: { list in
                     listToRename = list
@@ -62,26 +44,26 @@ struct ContentView: View {
                 },
                 onDeleteCompleted: deleteCompleted,
                 onSortChanged: { option in
-                    selectedList?.sort = option
+                    readModel.selectedList?.sort = option
                 },
-                currentSort: currentSort
+                currentSort: readModel.currentSort
             )
 
             Divider()
 
-            AddTaskView(list: selectedList, nextSortOrder: nextSortOrder)
+            AddTaskView(list: readModel.selectedList, nextSortOrder: readModel.nextSortOrder)
 
             Divider()
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if currentSort == .dueDate || currentSort == .date {
+                    if readModel.showsGroupedActiveTasks {
                         groupedByDate
                     } else {
                         flatList
                     }
 
-                    CompletedTasksSection(tasks: completedTasks) {
+                    CompletedTasksSection(tasks: readModel.completedTasks) {
                         deleteCompleted()
                     }
                     .padding(.horizontal, 12)
@@ -126,7 +108,7 @@ struct ContentView: View {
     // MARK: - Flat list
     @ViewBuilder
     private var flatList: some View {
-        ForEach(activeTasks) { task in
+        ForEach(readModel.activeTasks) { task in
             taskRow(task)
             Divider().padding(.leading, 12)
         }
@@ -135,9 +117,7 @@ struct ContentView: View {
     // MARK: - Grouped by date
     @ViewBuilder
     private var groupedByDate: some View {
-        let grouped = TaskQueryService.groupedByDate(activeTasks)
-
-        ForEach(grouped, id: \.section) { group in
+        ForEach(readModel.groupedActiveTasks, id: \.section) { group in
             Text(TaskDatePresentation.sectionTitle(for: group.section))
                 .font(.caption)
                 .fontWeight(.semibold)
@@ -206,7 +186,7 @@ struct ContentView: View {
 
     private func deleteCompleted() {
         withAnimation {
-            for task in completedTasks {
+            for task in readModel.completedTasks {
                 modelContext.delete(task)
             }
         }
