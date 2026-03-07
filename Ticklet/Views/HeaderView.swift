@@ -1,12 +1,13 @@
 import SwiftUI
-import SwiftData
 
 struct HeaderView: View {
-    @Binding var selectedListID: UUID?
-    @Binding var filterMode: FilterMode
     let lists: [TaskList]
+    let selectedListID: UUID?
     let selectedListName: String
     let selectedList: TaskList?
+    let filterMode: FilterMode
+    let onSelectList: (UUID?) -> Void
+    let onToggleFilterMode: () -> Void
     let onCreateList: () -> Void
     let onRenameList: (TaskList) -> Void
     let onDeleteList: (TaskList) -> Void
@@ -16,91 +17,26 @@ struct HeaderView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // List picker
-            Menu {
-                ForEach(lists) { list in
-                    Button {
-                        selectedListID = list.id
-                    } label: {
-                        HStack {
-                            Text(list.name)
-                            if list.id == selectedListID {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-                Divider()
-                Button {
-                    onCreateList()
-                } label: {
-                    Label("新しいリスト", systemImage: "plus")
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(selectedListName)
-                        .font(.headline)
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                }
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            ListPickerView(
+                lists: lists,
+                selectedListID: selectedListID,
+                selectedListName: selectedListName,
+                onSelectList: onSelectList,
+                onCreateList: onCreateList
+            )
 
             Spacer()
 
-            // Star filter
-            Button {
-                withAnimation {
-                    filterMode = filterMode == .all ? .starred : .all
-                }
-            } label: {
-                Image(systemName: filterMode == .starred ? "star.fill" : "star")
-                    .foregroundStyle(filterMode == .starred ? .yellow : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(filterMode == .starred ? "すべてのタスク" : "スター付き")
+            FilterToggleButton(filterMode: filterMode, onToggle: onToggleFilterMode)
 
-            // Sort & options menu
-            Menu {
-                Section("並べ替え") {
-                    ForEach(SortOption.allCases, id: \.self) { option in
-                        Button {
-                            onSortChanged(option)
-                        } label: {
-                            HStack {
-                                Text(option.displayName)
-                                if currentSort == option {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-                Divider()
-                if let list = selectedList, !list.isDefault {
-                    Button {
-                        onRenameList(list)
-                    } label: {
-                        Label("リスト名を変更", systemImage: "pencil")
-                    }
-                    Button(role: .destructive) {
-                        onDeleteList(list)
-                    } label: {
-                        Label("リストを削除", systemImage: "trash")
-                    }
-                    Divider()
-                }
-                Button(role: .destructive) {
-                    onDeleteCompleted()
-                } label: {
-                    Label("完了タスクをすべて削除", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            HeaderActionsMenuView(
+                selectedList: selectedList,
+                currentSort: currentSort,
+                onSortChanged: onSortChanged,
+                onRenameList: onRenameList,
+                onDeleteList: onDeleteList,
+                onDeleteCompleted: onDeleteCompleted
+            )
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
