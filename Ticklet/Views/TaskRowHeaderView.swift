@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TaskRowHeaderView: View {
+    let taskID: UUID
     @Binding var title: String
     let dueDate: Date?
     let isExpanded: Bool
@@ -20,6 +21,7 @@ struct TaskRowHeaderView: View {
                     .foregroundStyle(isCompleted ? .gray : .blue)
                     .font(.title3)
             }
+            .accessibilityIdentifier("task-complete-\(taskID.uuidString)")
             .buttonStyle(.plain)
 
             if isExpanded {
@@ -50,6 +52,7 @@ struct TaskRowHeaderView: View {
                         .foregroundStyle(isStarred ? .yellow : .secondary)
                         .font(.callout)
                 }
+                .accessibilityIdentifier("task-star-\(taskID.uuidString)")
                 .buttonStyle(.plain)
             }
         }

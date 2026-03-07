@@ -80,6 +80,43 @@ struct TaskMutationServiceTests {
         #expect(nextTask?.isCompleted == false)
     }
 
+    @Test func completeTaskTogglesCompletedRecurringTaskBackWithoutCreatingAnother() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let task = TaskItem(title: "Repeat", dueDate: Self.date(2026, 3, 8, 9))
+        task.recurrenceRule = .daily
+        task.markCompleted(at: Self.date(2026, 3, 8, 10))
+        context.insert(task)
+
+        service.completeTask(task, completionDate: Self.date(2026, 3, 8, 12), calendar: Self.testCalendar)
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(task.isCompleted == false)
+        #expect(task.completedAt == nil)
+        #expect(tasks.count == 1)
+    }
+
+    @Test func addTaskAllowsNilList() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+
+        let task = service.addTask(
+            title: "Inboxless",
+            note: "",
+            dueDate: nil,
+            recurrenceRule: nil,
+            isStarred: false,
+            sortOrder: 0,
+            list: nil
+        )
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(tasks.count == 1)
+        #expect(task.list == nil)
+    }
+
     @Test func markTaskIncompleteResetsCompletionState() {
         let service = TaskMutationService(modelContext: ModelContext(try! SwiftDataTestSupport.makeContainer()))
         let task = TaskItem(title: "Task")
@@ -132,6 +169,21 @@ struct TaskMutationServiceTests {
         context.insert(second)
 
         service.deleteCompletedTasks([first])
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(tasks.map(\.title) == ["Second"])
+    }
+
+    @Test func deleteTaskDeletesSingleTask() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let first = TaskItem(title: "First")
+        let second = TaskItem(title: "Second")
+        context.insert(first)
+        context.insert(second)
+
+        service.deleteTask(first)
 
         let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
         #expect(tasks.map(\.title) == ["Second"])

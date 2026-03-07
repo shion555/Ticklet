@@ -51,6 +51,7 @@ struct HeaderActionsMenuView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
+        .accessibilityIdentifier("header-actions-menu")
         .menuStyle(.borderlessButton)
         .fixedSize()
     }

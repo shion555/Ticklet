@@ -21,6 +21,7 @@ struct TaskRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             TaskRowHeaderView(
+                taskID: task.id,
                 title: $task.title,
                 dueDate: task.dueDate,
                 isExpanded: isExpanded,

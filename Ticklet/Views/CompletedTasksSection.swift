@@ -34,6 +34,7 @@ struct CompletedTasksSection: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityIdentifier("completed-section")
         }
     }
 }
