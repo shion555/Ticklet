@@ -1,6 +1,18 @@
 import Foundation
 
 enum TaskQueryService {
+    static func selectedList(from lists: [TaskList], selectedListID: UUID?) -> TaskList? {
+        lists.first { $0.id == selectedListID }
+    }
+
+    static func selectedSort(from selectedList: TaskList?) -> SortOption {
+        selectedList?.sort ?? .manual
+    }
+
+    static func sortedLists(_ lists: [TaskList]) -> [TaskList] {
+        lists.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
     static func activeTasks(
         from allTasks: [TaskItem],
         selectedListID: UUID?,
@@ -65,5 +77,9 @@ enum TaskQueryService {
         return grouped.keys.sorted().map { section in
             (section: section, tasks: grouped[section] ?? [])
         }
+    }
+
+    static func nextSortOrder(for tasks: [TaskItem]) -> Int {
+        (tasks.map(\.sortOrder).max() ?? -1) + 1
     }
 }

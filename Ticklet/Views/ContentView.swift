@@ -16,41 +16,25 @@ struct ContentView: View {
     @State private var showDeleteConfirm = false
     @State private var listToDelete: TaskList?
 
-    private var selectedList: TaskList? {
-        lists.first { $0.id == selectedListID }
-    }
-
-    private var currentSort: SortOption {
-        selectedList?.sort ?? .manual
-    }
-
-    private var activeTasks: [TaskItem] {
-        TaskQueryService.activeTasks(
-            from: allTasks,
-            selectedListID: selectedListID,
-            filterMode: filterMode,
-            sortOption: currentSort
-        )
-    }
-
-    private var completedTasks: [TaskItem] {
-        TaskQueryService.completedTasks(
-            from: allTasks,
+    private func makeReadModel() -> ContentViewReadModel {
+        ContentViewReadModel(
+            lists: lists,
+            allTasks: allTasks,
             selectedListID: selectedListID,
             filterMode: filterMode
         )
     }
 
-    private var nextSortOrder: Int {
-        (activeTasks.map(\.sortOrder).max() ?? -1) + 1
-    }
-
     var body: some View {
+        let readModel = makeReadModel()
+
         VStack(spacing: 0) {
             HeaderView(
                 selectedListID: $selectedListID,
                 filterMode: $filterMode,
-                lists: lists,
+                lists: readModel.sortedLists,
+                selectedListName: readModel.selectedListName,
+                selectedList: readModel.selectedList,
                 onCreateList: { showCreateList = true },
                 onRenameList: { list in
                     listToRename = list
@@ -60,29 +44,31 @@ struct ContentView: View {
                     listToDelete = list
                     showDeleteConfirm = true
                 },
-                onDeleteCompleted: deleteCompleted,
-                onSortChanged: { option in
-                    selectedList?.sort = option
+                onDeleteCompleted: {
+                    deleteCompleted(readModel.completedTasks)
                 },
-                currentSort: currentSort
+                onSortChanged: { option in
+                    readModel.selectedList?.sort = option
+                },
+                currentSort: readModel.currentSort
             )
 
             Divider()
 
-            AddTaskView(list: selectedList, nextSortOrder: nextSortOrder)
+            AddTaskView(list: readModel.selectedList, nextSortOrder: readModel.nextSortOrder)
 
             Divider()
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if currentSort == .dueDate || currentSort == .date {
-                        groupedByDate
+                    if readModel.showsGroupedActiveTasks {
+                        groupedByDate(readModel)
                     } else {
-                        flatList
+                        flatList(readModel)
                     }
 
-                    CompletedTasksSection(tasks: completedTasks) {
-                        deleteCompleted()
+                    CompletedTasksSection(tasks: readModel.completedTasks) {
+                        deleteCompleted(readModel.completedTasks)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
@@ -125,8 +111,8 @@ struct ContentView: View {
 
     // MARK: - Flat list
     @ViewBuilder
-    private var flatList: some View {
-        ForEach(activeTasks) { task in
+    private func flatList(_ readModel: ContentViewReadModel) -> some View {
+        ForEach(readModel.activeTasks) { task in
             taskRow(task)
             Divider().padding(.leading, 12)
         }
@@ -134,10 +120,8 @@ struct ContentView: View {
 
     // MARK: - Grouped by date
     @ViewBuilder
-    private var groupedByDate: some View {
-        let grouped = TaskQueryService.groupedByDate(activeTasks)
-
-        ForEach(grouped, id: \.section) { group in
+    private func groupedByDate(_ readModel: ContentViewReadModel) -> some View {
+        ForEach(readModel.groupedActiveTasks, id: \.section) { group in
             Text(TaskDatePresentation.sectionTitle(for: group.section))
                 .font(.caption)
                 .fontWeight(.semibold)
@@ -204,9 +188,9 @@ struct ContentView: View {
         }
     }
 
-    private func deleteCompleted() {
+    private func deleteCompleted(_ tasks: [TaskItem]) {
         withAnimation {
-            for task in completedTasks {
+            for task in tasks {
                 modelContext.delete(task)
             }
         }

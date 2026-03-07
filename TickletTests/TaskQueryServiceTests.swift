@@ -3,6 +3,32 @@ import Testing
 @testable import Ticklet
 
 struct TaskQueryServiceTests {
+    @Test func selectedListAndSortUseSelectedListID() {
+        let first = TaskList(name: "First", sortOrder: 1)
+        let second = TaskList(name: "Second", sortOrder: 0)
+        first.sort = .title
+
+        let selected = TaskQueryService.selectedList(from: [second, first], selectedListID: first.id)
+
+        #expect(selected?.id == first.id)
+        #expect(TaskQueryService.selectedSort(from: selected) == .title)
+        #expect(TaskQueryService.selectedSort(from: nil) == .manual)
+    }
+
+    @Test func sortedListsAndNextSortOrderArePureHelpers() {
+        let first = TaskList(name: "First", sortOrder: 3)
+        let second = TaskList(name: "Second", sortOrder: 1)
+        let third = TaskList(name: "Third", sortOrder: 2)
+        let tasks = [
+            Self.makeTask(title: "one", sortOrder: 4),
+            Self.makeTask(title: "two", sortOrder: 1)
+        ]
+
+        #expect(TaskQueryService.sortedLists([first, second, third]).map(\.name) == ["Second", "Third", "First"])
+        #expect(TaskQueryService.nextSortOrder(for: tasks) == 5)
+        #expect(TaskQueryService.nextSortOrder(for: []) == 0)
+    }
+
     @Test func activeTasksForAllFilterUsesSelectedListAndTopLevelOnly() {
         let listA = TaskList(name: "A")
         let listB = TaskList(name: "B")
