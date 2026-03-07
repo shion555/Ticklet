@@ -46,8 +46,11 @@ struct ContentViewReadModel {
         )
 
         self.nextSortOrder = TaskQueryService.nextSortOrder(for: activeTasks)
-        self.showsGroupedActiveTasks = currentSort == .dueDate || currentSort == .date
-        self.groupedActiveTasks = TaskQueryService.groupedByDate(activeTasks)
+        let showsGroupedActiveTasks = currentSort == .dueDate || currentSort == .date
+        self.showsGroupedActiveTasks = showsGroupedActiveTasks
+        self.groupedActiveTasks = showsGroupedActiveTasks
+            ? TaskQueryService.groupedByDate(activeTasks)
+            : []
         self.renameableSelectedList = (selectedList?.isDefault == false) ? selectedList : nil
     }
 }
