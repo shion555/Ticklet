@@ -12,15 +12,19 @@ struct CompletedTaskRowView: View {
                     .foregroundStyle(.gray)
                     .font(.title3)
             }
+            .accessibilityIdentifier("completed-task-reset-\(task.id.uuidString)")
             .buttonStyle(.plain)
 
             Text(task.title)
                 .strikethrough()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .accessibilityIdentifier("completed-task-title-\(task.title)")
 
             Spacer()
         }
+        .accessibilityIdentifier("completed-task-\(task.id.uuidString)")
+        .accessibilityLabel(task.title)
         .padding(.vertical, 2)
         .contextMenu {
             Button(role: .destructive, action: onDelete) {

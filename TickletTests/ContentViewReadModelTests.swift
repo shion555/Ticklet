@@ -18,6 +18,22 @@ struct ContentViewReadModelTests {
         #expect(readModel.renameableSelectedList == nil)
     }
 
+    @Test func unknownSelectedListFallsBackToDefaultPresentation() {
+        let defaultList = TaskList(name: "Default", isDefault: true)
+        defaultList.sort = .dueDate
+
+        let readModel = ContentViewReadModel(
+            lists: [defaultList],
+            allTasks: [],
+            selectedListID: UUID(),
+            filterMode: .all
+        )
+
+        #expect(readModel.selectedList == nil)
+        #expect(readModel.selectedListName == "マイタスク")
+        #expect(readModel.currentSort == .manual)
+    }
+
     @Test func reflectsSelectedListMetadata() {
         let list = TaskList(name: "Work", sortOrder: 2)
         list.sort = .title
@@ -72,6 +88,23 @@ struct ContentViewReadModelTests {
 
         #expect(Set(readModel.activeTasks.map(\.title)) == Set(["activeA", "activeB"]))
         #expect(readModel.completedTasks.map(\.title) == ["done"])
+    }
+
+    @Test func starredCompletedTasksStillCrossListsWithoutSelection() {
+        let listA = TaskList(name: "A")
+        let listB = TaskList(name: "B")
+        let completedStarA = makeTask(title: "doneA", list: listA, isCompleted: true, isStarred: true)
+        let completedStarB = makeTask(title: "doneB", list: listB, isCompleted: true, isStarred: true)
+        let completedPlain = makeTask(title: "plain", list: listA, isCompleted: true)
+
+        let readModel = ContentViewReadModel(
+            lists: [listA, listB],
+            allTasks: [completedStarA, completedPlain, completedStarB],
+            selectedListID: nil,
+            filterMode: .starred
+        )
+
+        #expect(Set(readModel.completedTasks.map(\.title)) == Set(["doneA", "doneB"]))
     }
 
     @Test func groupedActiveTasksAreEnabledForDateSorts() {

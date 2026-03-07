@@ -37,6 +37,7 @@ struct ListPickerView: View {
                     .font(.caption2)
             }
         }
+        .accessibilityIdentifier("header-list-picker")
         .menuStyle(.borderlessButton)
         .fixedSize()
     }

@@ -22,6 +22,7 @@ struct AddTaskView: View {
             TextField("タスクを追加", text: $title)
                 .textFieldStyle(.plain)
                 .focused($isFocused)
+                .accessibilityIdentifier("add-task-field")
                 .onSubmit {
                     addTask()
                 }

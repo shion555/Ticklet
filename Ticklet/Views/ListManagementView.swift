@@ -19,6 +19,7 @@ struct CreateListPopover: View {
 
             TextField("リスト名", text: $name)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("create-list-field")
                 .onSubmit { create() }
 
             HStack {
@@ -27,6 +28,7 @@ struct CreateListPopover: View {
                 Button("作成") { create() }
                     .buttonStyle(.borderedProminent)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("create-list-submit")
             }
         }
         .padding()
@@ -59,6 +61,7 @@ struct RenameListPopover: View {
 
             TextField("リスト名", text: $name)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("rename-list-field")
                 .onSubmit { rename() }
 
             HStack {
@@ -67,6 +70,7 @@ struct RenameListPopover: View {
                 Button("変更") { rename() }
                     .buttonStyle(.borderedProminent)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("rename-list-submit")
             }
         }
         .padding()

@@ -13,6 +13,7 @@ struct FilterToggleButton: View {
             Image(systemName: filterMode == .starred ? "star.fill" : "star")
                 .foregroundStyle(filterMode == .starred ? .yellow : .secondary)
         }
+        .accessibilityIdentifier("header-filter-toggle")
         .buttonStyle(.plain)
         .help(filterMode == .starred ? "すべてのタスク" : "スター付き")
     }
