@@ -25,20 +25,20 @@ struct ContentView: View {
     }
 
     private var activeTasks: [TaskItem] {
-        var tasks: [TaskItem]
-        if filterMode == .starred {
-            tasks = allTasks.filter { $0.isTopLevel && !$0.isCompleted && $0.isStarred }
-        } else {
-            tasks = allTasks.filter { $0.isTopLevel && !$0.isCompleted && $0.list?.id == selectedListID }
-        }
-        return sortedTasks(tasks)
+        TaskQueryService.activeTasks(
+            from: allTasks,
+            selectedListID: selectedListID,
+            filterMode: filterMode,
+            sortOption: currentSort
+        )
     }
 
     private var completedTasks: [TaskItem] {
-        if filterMode == .starred {
-            return allTasks.filter { $0.isTopLevel && $0.isCompleted && $0.isStarred }
-        }
-        return allTasks.filter { $0.isTopLevel && $0.isCompleted && $0.list?.id == selectedListID }
+        TaskQueryService.completedTasks(
+            from: allTasks,
+            selectedListID: selectedListID,
+            filterMode: filterMode
+        )
     }
 
     private var nextSortOrder: Int {
@@ -135,11 +135,10 @@ struct ContentView: View {
     // MARK: - Grouped by date
     @ViewBuilder
     private var groupedByDate: some View {
-        let grouped = Dictionary(grouping: activeTasks) { DateSection.section(for: $0.dueDate) }
-        let sections = grouped.keys.sorted()
+        let grouped = TaskQueryService.groupedByDate(activeTasks)
 
-        ForEach(sections, id: \.title) { section in
-            Text(section.title)
+        ForEach(grouped, id: \.section) { group in
+            Text(TaskDatePresentation.sectionTitle(for: group.section))
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
@@ -147,7 +146,7 @@ struct ContentView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 2)
 
-            ForEach(grouped[section] ?? []) { task in
+            ForEach(group.tasks) { task in
                 taskRow(task)
                 Divider().padding(.leading, 12)
             }
@@ -210,26 +209,6 @@ struct ContentView: View {
             for task in completedTasks {
                 modelContext.delete(task)
             }
-        }
-    }
-
-    private func sortedTasks(_ tasks: [TaskItem]) -> [TaskItem] {
-        switch currentSort {
-        case .manual:
-            return tasks.sorted { $0.sortOrder < $1.sortOrder }
-        case .date:
-            return tasks.sorted { $0.createdAt > $1.createdAt }
-        case .dueDate:
-            return tasks.sorted { t1, t2 in
-                switch (t1.dueDate, t2.dueDate) {
-                case (nil, nil): return t1.createdAt < t2.createdAt
-                case (nil, _): return false
-                case (_, nil): return true
-                case (let d1?, let d2?): return d1 < d2
-                }
-            }
-        case .title:
-            return tasks.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
         }
     }
 }
