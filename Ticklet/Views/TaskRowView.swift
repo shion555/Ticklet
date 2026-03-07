@@ -20,12 +20,43 @@ struct TaskRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            collapsedRow
+            TaskRowHeaderView(
+                title: $task.title,
+                dueDate: task.dueDate,
+                isExpanded: isExpanded,
+                isCompleted: task.isCompleted,
+                isStarred: task.isStarred,
+                isHovering: isHovering,
+                titleFocused: $titleFocused,
+                onTap: onTap,
+                onComplete: onComplete,
+                onToggleStar: {
+                    withAnimation { taskMutationService.toggleStar(for: task) }
+                },
+                onUpdateDueDate: { newDate in
+                    taskMutationService.updateDueDate(for: task, to: newDate)
+                }
+            )
+
             if isExpanded {
-                expandedContent
+                TaskRowDetailsView(
+                    details: $task.details,
+                    recurrenceRule: Binding(
+                        get: { task.recurrenceRule },
+                        set: { task.recurrenceRule = $0 }
+                    ),
+                    dueDate: task.dueDate,
+                    detailsFocused: $detailsFocused,
+                    showDatePicker: $showDatePicker,
+                    pickerDate: $pickerDate,
+                    onSelectToday: { selectToday() },
+                    onSelectTomorrow: { selectTomorrow() },
+                    onUpdateDueDate: { newDate in
+                        taskMutationService.updateDueDate(for: task, to: newDate)
+                    }
+                )
             }
 
-            // Subtasks
             let subtasks = (task.subtasks).sorted { $0.sortOrder < $1.sortOrder }
             ForEach(subtasks) { sub in
                 SubtaskRowView(subtask: sub)
@@ -34,194 +65,69 @@ struct TaskRowView: View {
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .contextMenu { contextMenuItems }
-    }
-
-    // MARK: - Collapsed Row
-    private var collapsedRow: some View {
-        HStack(spacing: 6) {
-            Button {
-                onComplete()
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(task.isCompleted ? .gray : .blue)
-                    .font(.title3)
-            }
-            .buttonStyle(.plain)
-
-            if isExpanded {
-                TextField("タイトル", text: $task.title)
-                    .textFieldStyle(.plain)
-                    .focused($titleFocused)
-            } else {
-                Button { onTap() } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title)
-                            .lineLimit(1)
-                            .foregroundStyle(.primary)
-
-                        if let due = task.dueDate {
-                            DateChipView(date: due) { newDate in
-                                taskMutationService.updateDueDate(for: task, to: newDate)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Spacer(minLength: 0)
-
-            if isHovering || task.isStarred {
-                Button {
+        .contextMenu {
+            TaskRowContextMenuContent(
+                isTopLevel: task.isTopLevel,
+                isStarred: task.isStarred,
+                onAddSubtask: addSubtask,
+                onToggleStar: {
                     withAnimation { taskMutationService.toggleStar(for: task) }
-                } label: {
-                    Image(systemName: task.isStarred ? "star.fill" : "star")
-                        .foregroundStyle(task.isStarred ? .yellow : .secondary)
-                        .font(.callout)
+                },
+                onDeleteTask: {
+                    withAnimation { taskMutationService.deleteTask(task) }
                 }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: - Expanded Content
-    private var expandedContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("詳細を追加", text: $task.details, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .focused($detailsFocused)
-                .lineLimit(1...5)
-                .padding(.leading, 28)
-
-            // Date buttons row
-            HStack(spacing: 8) {
-                Button {
-                    taskMutationService.updateDueDate(
-                        for: task,
-                        to: Calendar.current.startOfDay(for: Date())
-                    )
-                } label: {
-                    Label("今日", systemImage: "sun.max")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button {
-                    taskMutationService.updateDueDate(
-                        for: task,
-                        to: Calendar.current.date(
-                            byAdding: .day,
-                            value: 1,
-                            to: Calendar.current.startOfDay(for: Date())
-                        )
-                    )
-                } label: {
-                    Label("明日", systemImage: "sunrise")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button {
-                    pickerDate = task.dueDate ?? Date()
-                    showDatePicker.toggle()
-                } label: {
-                    Label("日付", systemImage: "calendar")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .popover(isPresented: $showDatePicker) {
-                    VStack {
-                        DatePicker("", selection: $pickerDate, displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
-                            .onChange(of: pickerDate) { _, newVal in
-                                taskMutationService.updateDueDate(for: task, to: newVal)
-                            }
-
-                        HStack {
-                            Button("削除") {
-                                taskMutationService.updateDueDate(for: task, to: nil)
-                                showDatePicker = false
-                            }
-                            .foregroundStyle(.red)
-                            Spacer()
-                            Button("閉じる") { showDatePicker = false }
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding()
-                    .frame(width: 280)
-                }
-
-                if let due = task.dueDate {
-                    DateChipView(date: due) { newDate in
-                        taskMutationService.updateDueDate(for: task, to: newDate)
-                    }
-                }
-            }
-            .padding(.leading, 28)
-
-            // Recurrence
-            HStack(spacing: 8) {
-                Menu {
-                    ForEach(RecurrenceRule.allCases, id: \.self) { rule in
-                        Button(rule.displayName) {
-                            task.recurrenceRule = rule
-                        }
-                    }
-                    Divider()
-                    Button("なし") {
-                        task.recurrenceRule = nil
-                    }
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: "repeat")
-                        Text(task.recurrenceRule?.displayName ?? "繰り返し")
-                    }
-                    .font(.caption)
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-            }
-            .padding(.leading, 28)
-        }
-        .transition(.opacity.combined(with: .move(edge: .top)))
-    }
-
-    // MARK: - Context Menu
-    @ViewBuilder
-    private var contextMenuItems: some View {
-        if task.isTopLevel {
-            Button {
-                addSubtask()
-            } label: {
-                Label("サブタスクを追加", systemImage: "text.line.first.and.arrowtriangle.forward")
-            }
-        }
-
-        Button {
-            withAnimation { taskMutationService.toggleStar(for: task) }
-        } label: {
-            Label(task.isStarred ? "スターを外す" : "スターを付ける", systemImage: task.isStarred ? "star.slash" : "star")
-        }
-
-        Divider()
-
-        Button(role: .destructive) {
-            withAnimation { taskMutationService.deleteTask(task) }
-        } label: {
-            Label("削除", systemImage: "trash")
+            )
         }
     }
 
     private func addSubtask() {
         taskMutationService.addSubtask(title: "", to: task)
+    }
+
+    private func selectToday() {
+        taskMutationService.updateDueDate(
+            for: task,
+            to: Calendar.current.startOfDay(for: Date())
+        )
+    }
+
+    private func selectTomorrow() {
+        taskMutationService.updateDueDate(
+            for: task,
+            to: Calendar.current.date(
+                byAdding: .day,
+                value: 1,
+                to: Calendar.current.startOfDay(for: Date())
+            )
+        )
+    }
+}
+
+private struct TaskRowContextMenuContent: View {
+    let isTopLevel: Bool
+    let isStarred: Bool
+    let onAddSubtask: () -> Void
+    let onToggleStar: () -> Void
+    let onDeleteTask: () -> Void
+
+    var body: some View {
+        if isTopLevel {
+            Button(action: onAddSubtask) {
+                Label("サブタスクを追加", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+        }
+
+        Button(action: onToggleStar) {
+            Label(
+                isStarred ? "スターを外す" : "スターを付ける",
+                systemImage: isStarred ? "star.slash" : "star"
+            )
+        }
+
+        Divider()
+
+        Button(role: .destructive, action: onDeleteTask) {
+            Label("削除", systemImage: "trash")
+        }
     }
 }

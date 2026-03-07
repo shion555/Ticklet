@@ -6,15 +6,7 @@ struct ContentView: View {
     @Query(sort: \TaskList.sortOrder) private var lists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
-    @State private var selectedListID: UUID?
-    @State private var filterMode: FilterMode = .all
-    @State private var expandedTaskID: UUID?
-
-    @State private var showCreateList = false
-    @State private var showRenameList = false
-    @State private var listToRename: TaskList?
-    @State private var showDeleteConfirm = false
-    @State private var listToDelete: TaskList?
+    @State private var viewModel = ContentViewStateViewModel()
 
     private var taskMutationService: TaskMutationService {
         TaskMutationService(modelContext: modelContext)
@@ -28,8 +20,8 @@ struct ContentView: View {
         ContentViewReadModel(
             lists: lists,
             allTasks: allTasks,
-            selectedListID: selectedListID,
-            filterMode: filterMode
+            selectedListID: viewModel.selectedListID,
+            filterMode: viewModel.filterMode
         )
     }
 
@@ -38,20 +30,16 @@ struct ContentView: View {
 
         VStack(spacing: 0) {
             HeaderView(
-                selectedListID: $selectedListID,
-                filterMode: $filterMode,
                 lists: readModel.sortedLists,
+                selectedListID: viewModel.selectedListID,
                 selectedListName: readModel.selectedListName,
                 selectedList: readModel.selectedList,
-                onCreateList: { showCreateList = true },
-                onRenameList: { list in
-                    listToRename = list
-                    showRenameList = true
-                },
-                onDeleteList: { list in
-                    listToDelete = list
-                    showDeleteConfirm = true
-                },
+                filterMode: viewModel.filterMode,
+                onSelectList: viewModel.selectList,
+                onToggleFilterMode: viewModel.toggleFilterMode,
+                onCreateList: viewModel.presentCreateList,
+                onRenameList: viewModel.presentRenameList,
+                onDeleteList: viewModel.presentDeleteList,
                 onDeleteCompleted: {
                     deleteCompleted(readModel.completedTasks)
                 },
@@ -67,112 +55,96 @@ struct ContentView: View {
 
             Divider()
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if readModel.showsGroupedActiveTasks {
-                        groupedByDate(readModel)
-                    } else {
-                        flatList(readModel)
-                    }
-
-                    CompletedTasksSection(tasks: readModel.completedTasks) {
-                        deleteCompleted(readModel.completedTasks)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+            TaskListContentView(
+                readModel: readModel,
+                expandedTaskID: viewModel.expandedTaskID,
+                onTapTask: toggleExpandedTask,
+                onCompleteTask: completeTask,
+                onDeleteCompleted: {
+                    deleteCompleted(readModel.completedTasks)
                 }
-            }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 320, height: 480)
-        .onAppear { initializeDefaultList() }
-        .popover(isPresented: $showCreateList) {
-            CreateListPopover(isPresented: $showCreateList, existingCount: lists.count)
+        .onAppear {
+            initializeDefaultList()
         }
-        .popover(isPresented: $showRenameList) {
-            if let list = listToRename {
-                RenameListPopover(list: list, isPresented: $showRenameList)
+        .popover(isPresented: $viewModel.showCreateList) {
+            CreateListPopover(
+                isPresented: Binding(
+                    get: { viewModel.showCreateList },
+                    set: { newValue in
+                        if newValue {
+                            viewModel.showCreateList = true
+                        } else {
+                            viewModel.dismissCreateList()
+                        }
+                    }
+                ),
+                existingCount: lists.count
+            )
+        }
+        .popover(isPresented: $viewModel.showRenameList) {
+            if let list = viewModel.listToRename {
+                RenameListPopover(
+                    list: list,
+                    isPresented: Binding(
+                        get: { viewModel.showRenameList },
+                        set: { newValue in
+                            if newValue {
+                                viewModel.showRenameList = true
+                            } else {
+                                viewModel.dismissRenameList()
+                            }
+                        }
+                    )
+                )
             }
         }
-        .alert("リストを削除しますか？", isPresented: $showDeleteConfirm) {
+        .alert("リストを削除しますか？", isPresented: $viewModel.showDeleteConfirm) {
             Button("削除", role: .destructive) {
-                if let list = listToDelete {
+                if let list = viewModel.listToDelete {
                     withAnimation {
                         listMutationService.deleteList(list)
-                        if selectedListID == list.id {
-                            selectedListID = listMutationService.fallbackSelectedListID(
-                                afterDeleting: list,
-                                remainingLists: lists
-                            )
-                        }
+                        let fallbackSelectedListID = listMutationService.fallbackSelectedListID(
+                            afterDeleting: list,
+                            remainingLists: lists
+                        )
+                        viewModel.applyListDeletionFallback(
+                            currentDeletedListID: list.id,
+                            fallbackSelectedListID: fallbackSelectedListID
+                        )
+                        viewModel.dismissDeleteConfirm()
                     }
                 }
             }
-            Button("キャンセル", role: .cancel) {}
+            Button("キャンセル", role: .cancel) {
+                viewModel.dismissDeleteConfirm()
+            }
         } message: {
             Text("このリストとすべてのタスクが削除されます。")
         }
         .onKeyPress(.escape) {
-            if expandedTaskID != nil {
-                expandedTaskID = nil
+            if viewModel.expandedTaskID != nil {
+                viewModel.collapseExpandedTask()
                 return .handled
             }
             return .ignored
         }
     }
 
-    // MARK: - Flat list
-    @ViewBuilder
-    private func flatList(_ readModel: ContentViewReadModel) -> some View {
-        ForEach(readModel.activeTasks) { task in
-            taskRow(task)
-            Divider().padding(.leading, 12)
+    private func toggleExpandedTask(_ task: TaskItem) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            viewModel.toggleExpandedTask(task.id)
         }
-    }
-
-    // MARK: - Grouped by date
-    @ViewBuilder
-    private func groupedByDate(_ readModel: ContentViewReadModel) -> some View {
-        ForEach(readModel.groupedActiveTasks, id: \.section) { group in
-            Text(TaskDatePresentation.sectionTitle(for: group.section))
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-                .padding(.bottom, 2)
-
-            ForEach(group.tasks) { task in
-                taskRow(task)
-                Divider().padding(.leading, 12)
-            }
-        }
-    }
-
-    // MARK: - Task Row
-    private func taskRow(_ task: TaskItem) -> some View {
-        TaskRowView(
-            task: task,
-            isExpanded: expandedTaskID == task.id,
-            onTap: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    expandedTaskID = expandedTaskID == task.id ? nil : task.id
-                }
-            },
-            onComplete: {
-                completeTask(task)
-            }
-        )
-        .padding(.horizontal, 12)
-        .padding(.vertical, 2)
     }
 
     // MARK: - Actions
     private func initializeDefaultList() {
-        if let defaultList = listMutationService.initializeDefaultList(existingLists: lists), lists.isEmpty {
-            selectedListID = defaultList.id
-        } else if selectedListID == nil {
-            selectedListID = lists.first(where: { $0.isDefault })?.id ?? lists.first?.id
-        }
+        let defaultList = listMutationService.initializeDefaultList(existingLists: lists)
+        let defaultListID = defaultList?.id ?? lists.first(where: \.isDefault)?.id
+        viewModel.syncInitialSelection(with: lists, defaultListID: defaultListID)
     }
 
     private func completeTask(_ task: TaskItem) {
@@ -184,6 +156,31 @@ struct ContentView: View {
     private func deleteCompleted(_ tasks: [TaskItem]) {
         withAnimation {
             taskMutationService.deleteCompletedTasks(tasks)
+        }
+    }
+}
+
+private struct TaskListContentView: View {
+    let readModel: ContentViewReadModel
+    let expandedTaskID: UUID?
+    let onTapTask: (TaskItem) -> Void
+    let onCompleteTask: (TaskItem) -> Void
+    let onDeleteCompleted: () -> Void
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                TaskSectionListView(
+                    readModel: readModel,
+                    expandedTaskID: expandedTaskID,
+                    onTapTask: onTapTask,
+                    onCompleteTask: onCompleteTask
+                )
+
+                CompletedTasksSection(tasks: readModel.completedTasks, onDeleteAll: onDeleteCompleted)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+            }
         }
     }
 }
