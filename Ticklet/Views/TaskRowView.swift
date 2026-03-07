@@ -14,6 +14,10 @@ struct TaskRowView: View {
     @State private var showDatePicker = false
     @State private var pickerDate = Date()
 
+    private var taskMutationService: TaskMutationService {
+        TaskMutationService(modelContext: modelContext)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             collapsedRow
@@ -58,7 +62,7 @@ struct TaskRowView: View {
 
                         if let due = task.dueDate {
                             DateChipView(date: due) { newDate in
-                                task.dueDate = newDate
+                                taskMutationService.updateDueDate(for: task, to: newDate)
                             }
                         }
                     }
@@ -71,7 +75,7 @@ struct TaskRowView: View {
 
             if isHovering || task.isStarred {
                 Button {
-                    withAnimation { task.isStarred.toggle() }
+                    withAnimation { taskMutationService.toggleStar(for: task) }
                 } label: {
                     Image(systemName: task.isStarred ? "star.fill" : "star")
                         .foregroundStyle(task.isStarred ? .yellow : .secondary)
@@ -96,7 +100,10 @@ struct TaskRowView: View {
             // Date buttons row
             HStack(spacing: 8) {
                 Button {
-                    task.dueDate = Calendar.current.startOfDay(for: Date())
+                    taskMutationService.updateDueDate(
+                        for: task,
+                        to: Calendar.current.startOfDay(for: Date())
+                    )
                 } label: {
                     Label("今日", systemImage: "sun.max")
                         .font(.caption)
@@ -105,7 +112,14 @@ struct TaskRowView: View {
                 .controlSize(.small)
 
                 Button {
-                    task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))
+                    taskMutationService.updateDueDate(
+                        for: task,
+                        to: Calendar.current.date(
+                            byAdding: .day,
+                            value: 1,
+                            to: Calendar.current.startOfDay(for: Date())
+                        )
+                    )
                 } label: {
                     Label("明日", systemImage: "sunrise")
                         .font(.caption)
@@ -128,12 +142,12 @@ struct TaskRowView: View {
                             .datePickerStyle(.graphical)
                             .labelsHidden()
                             .onChange(of: pickerDate) { _, newVal in
-                                task.dueDate = newVal
+                                taskMutationService.updateDueDate(for: task, to: newVal)
                             }
 
                         HStack {
                             Button("削除") {
-                                task.dueDate = nil
+                                taskMutationService.updateDueDate(for: task, to: nil)
                                 showDatePicker = false
                             }
                             .foregroundStyle(.red)
@@ -148,7 +162,7 @@ struct TaskRowView: View {
 
                 if let due = task.dueDate {
                     DateChipView(date: due) { newDate in
-                        task.dueDate = newDate
+                        taskMutationService.updateDueDate(for: task, to: newDate)
                     }
                 }
             }
@@ -193,7 +207,7 @@ struct TaskRowView: View {
         }
 
         Button {
-            withAnimation { task.isStarred.toggle() }
+            withAnimation { taskMutationService.toggleStar(for: task) }
         } label: {
             Label(task.isStarred ? "スターを外す" : "スターを付ける", systemImage: task.isStarred ? "star.slash" : "star")
         }
@@ -201,20 +215,13 @@ struct TaskRowView: View {
         Divider()
 
         Button(role: .destructive) {
-            withAnimation { modelContext.delete(task) }
+            withAnimation { taskMutationService.deleteTask(task) }
         } label: {
             Label("削除", systemImage: "trash")
         }
     }
 
     private func addSubtask() {
-        let sub = TaskItem(
-            title: "",
-            sortOrder: task.subtasks.count,
-            list: task.list,
-            parentID: task.id
-        )
-        task.subtasks.append(sub)
-        modelContext.insert(sub)
+        taskMutationService.addSubtask(title: "", to: task)
     }
 }

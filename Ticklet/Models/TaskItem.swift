@@ -53,4 +53,63 @@ final class TaskItem {
     }
 
     var isTopLevel: Bool { parentID == nil }
+
+    func markCompleted(at date: Date = Date()) {
+        isCompleted = true
+        completedAt = date
+    }
+
+    func markIncomplete() {
+        isCompleted = false
+        completedAt = nil
+    }
+
+    func toggleCompleted(at date: Date = Date()) {
+        if isCompleted {
+            markIncomplete()
+        } else {
+            markCompleted(at: date)
+        }
+    }
+
+    func makeNextRecurringTask(
+        calendar: Calendar = .current,
+        referenceDate: Date = Date()
+    ) -> TaskItem? {
+        guard let rule = recurrenceRule else { return nil }
+
+        let nextDate = RecurrenceHelper.nextDate(
+            from: dueDate,
+            rule: rule,
+            calendar: calendar,
+            referenceDate: referenceDate
+        )
+        let task = TaskItem(
+            title: title,
+            details: details,
+            dueDate: nextDate,
+            isStarred: isStarred,
+            sortOrder: sortOrder,
+            list: list
+        )
+        task.recurrenceRule = rule
+        return task
+    }
+
+    func makeSubtask(title: String, sortOrder: Int) -> TaskItem {
+        TaskItem(
+            title: title,
+            sortOrder: sortOrder,
+            list: list,
+            parentID: id
+        )
+    }
+
+    func updateDueDate(_ dueDate: Date?) {
+        self.dueDate = dueDate
+    }
+
+    func toggleStar() {
+        isStarred.toggle()
+    }
 }

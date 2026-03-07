@@ -16,6 +16,14 @@ struct ContentView: View {
     @State private var showDeleteConfirm = false
     @State private var listToDelete: TaskList?
 
+    private var taskMutationService: TaskMutationService {
+        TaskMutationService(modelContext: modelContext)
+    }
+
+    private var listMutationService: ListMutationService {
+        ListMutationService(modelContext: modelContext)
+    }
+
     private func makeReadModel() -> ContentViewReadModel {
         ContentViewReadModel(
             lists: lists,
@@ -89,9 +97,12 @@ struct ContentView: View {
             Button("削除", role: .destructive) {
                 if let list = listToDelete {
                     withAnimation {
-                        modelContext.delete(list)
+                        listMutationService.deleteList(list)
                         if selectedListID == list.id {
-                            selectedListID = lists.first(where: { $0.isDefault })?.id
+                            selectedListID = listMutationService.fallbackSelectedListID(
+                                afterDeleting: list,
+                                remainingLists: lists
+                            )
                         }
                     }
                 }
@@ -157,10 +168,7 @@ struct ContentView: View {
 
     // MARK: - Actions
     private func initializeDefaultList() {
-        if lists.isEmpty {
-            let defaultList = TaskList(name: "マイタスク", sortOrder: 0, isDefault: true)
-            modelContext.insert(defaultList)
-            try? modelContext.save()
+        if let defaultList = listMutationService.initializeDefaultList(existingLists: lists), lists.isEmpty {
             selectedListID = defaultList.id
         } else if selectedListID == nil {
             selectedListID = lists.first(where: { $0.isDefault })?.id ?? lists.first?.id
@@ -169,30 +177,13 @@ struct ContentView: View {
 
     private func completeTask(_ task: TaskItem) {
         withAnimation {
-            task.isCompleted.toggle()
-            task.completedAt = task.isCompleted ? Date() : nil
-
-            if task.isCompleted, let rule = task.recurrenceRule {
-                let nextDate = RecurrenceHelper.nextDate(from: task.dueDate, rule: rule)
-                let newTask = TaskItem(
-                    title: task.title,
-                    details: task.details,
-                    dueDate: nextDate,
-                    isStarred: task.isStarred,
-                    sortOrder: task.sortOrder,
-                    list: task.list
-                )
-                newTask.recurrenceRule = rule
-                modelContext.insert(newTask)
-            }
+            taskMutationService.completeTask(task)
         }
     }
 
     private func deleteCompleted(_ tasks: [TaskItem]) {
         withAnimation {
-            for task in tasks {
-                modelContext.delete(task)
-            }
+            taskMutationService.deleteCompletedTasks(tasks)
         }
     }
 }
