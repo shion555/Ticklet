@@ -8,6 +8,10 @@ struct CreateListPopover: View {
 
     @State private var name = ""
 
+    private var listMutationService: ListMutationService {
+        ListMutationService(modelContext: modelContext)
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             Text("新しいリスト")
@@ -32,17 +36,21 @@ struct CreateListPopover: View {
     private func create() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let list = TaskList(name: trimmed, sortOrder: existingCount)
-        modelContext.insert(list)
+        listMutationService.createList(name: trimmed, sortOrder: existingCount)
         isPresented = false
     }
 }
 
 struct RenameListPopover: View {
     @Bindable var list: TaskList
+    @Environment(\.modelContext) private var modelContext
     @Binding var isPresented: Bool
 
     @State private var name: String = ""
+
+    private var listMutationService: ListMutationService {
+        ListMutationService(modelContext: modelContext)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -69,7 +77,7 @@ struct RenameListPopover: View {
     private func rename() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        list.name = trimmed
+        listMutationService.renameList(list, to: trimmed)
         isPresented = false
     }
 }

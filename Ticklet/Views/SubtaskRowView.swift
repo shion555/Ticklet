@@ -5,12 +5,15 @@ struct SubtaskRowView: View {
     @Bindable var subtask: TaskItem
     @Environment(\.modelContext) private var modelContext
 
+    private var taskMutationService: TaskMutationService {
+        TaskMutationService(modelContext: modelContext)
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             Button {
                 withAnimation {
-                    subtask.isCompleted.toggle()
-                    subtask.completedAt = subtask.isCompleted ? Date() : nil
+                    taskMutationService.toggleSubtaskCompletion(subtask)
                 }
             } label: {
                 Image(systemName: subtask.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -29,7 +32,7 @@ struct SubtaskRowView: View {
         .contextMenu {
             Button(role: .destructive) {
                 withAnimation {
-                    modelContext.delete(subtask)
+                    taskMutationService.deleteTask(subtask)
                 }
             } label: {
                 Label("削除", systemImage: "trash")

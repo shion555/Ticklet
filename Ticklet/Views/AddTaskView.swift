@@ -9,6 +9,10 @@ struct AddTaskView: View {
     @State private var title = ""
     @FocusState private var isFocused: Bool
 
+    private var taskMutationService: TaskMutationService {
+        TaskMutationService(modelContext: modelContext)
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "plus")
@@ -31,8 +35,15 @@ struct AddTaskView: View {
         guard !trimmed.isEmpty else { return }
 
         withAnimation {
-            let task = TaskItem(title: trimmed, sortOrder: nextSortOrder, list: list)
-            modelContext.insert(task)
+            taskMutationService.addTask(
+                title: trimmed,
+                note: "",
+                dueDate: nil,
+                recurrenceRule: nil,
+                isStarred: false,
+                sortOrder: nextSortOrder,
+                list: list
+            )
             title = ""
         }
     }
