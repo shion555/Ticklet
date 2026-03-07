@@ -7,20 +7,6 @@ enum DateSection: Hashable, Comparable {
     case upcoming(Date)
     case noDueDate
 
-    var title: String {
-        switch self {
-        case .overdue: return "期限超過"
-        case .today: return "今日"
-        case .tomorrow: return "明日"
-        case .upcoming(let date):
-            let formatter = DateFormatter()
-            formatter.dateFormat = "M月d日(E)"
-            formatter.locale = Locale(identifier: "ja_JP")
-            return formatter.string(from: date)
-        case .noDueDate: return "期限なし"
-        }
-    }
-
     private var sortKey: Int {
         switch self {
         case .overdue: return 0
@@ -39,15 +25,21 @@ enum DateSection: Hashable, Comparable {
         return false
     }
 
-    static func section(for date: Date?) -> DateSection {
+    static func section(
+        for date: Date?,
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> DateSection {
         guard let date = date else { return .noDueDate }
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let taskDay = cal.startOfDay(for: date)
+        let today = calendar.startOfDay(for: now)
+        let taskDay = calendar.startOfDay(for: date)
 
         if taskDay < today { return .overdue }
-        if cal.isDateInToday(date) { return .today }
-        if cal.isDateInTomorrow(date) { return .tomorrow }
+        if calendar.isDate(date, inSameDayAs: now) { return .today }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           calendar.isDate(date, inSameDayAs: tomorrow) {
+            return .tomorrow
+        }
         return .upcoming(taskDay)
     }
 }

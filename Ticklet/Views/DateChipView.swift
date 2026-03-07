@@ -17,7 +17,7 @@ struct DateChipView: View {
         Button {
             showingPicker.toggle()
         } label: {
-            Text(formattedDate)
+            Text(TaskDatePresentation.badgeText(for: date))
                 .font(.caption)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -56,22 +56,13 @@ struct DateChipView: View {
     }
 
     private var chipColor: Color {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        let taskDay = cal.startOfDay(for: date)
-        if taskDay < today { return .red }
-        if cal.isDateInToday(date) { return .blue }
-        return .secondary
-    }
-
-    private var formattedDate: String {
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return "今日" }
-        if cal.isDateInTomorrow(date) { return "明日" }
-        if cal.isDateInYesterday(date) { return "昨日" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M月d日"
-        formatter.locale = Locale(identifier: "ja_JP")
-        return formatter.string(from: date)
+        switch TaskDatePresentation.badgeStyle(for: date) {
+        case .overdue:
+            return .red
+        case .today:
+            return .blue
+        case .normal:
+            return .secondary
+        }
     }
 }
