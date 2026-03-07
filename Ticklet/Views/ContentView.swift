@@ -16,7 +16,7 @@ struct ContentView: View {
     @State private var showDeleteConfirm = false
     @State private var listToDelete: TaskList?
 
-    private var readModel: ContentViewReadModel {
+    private func makeReadModel() -> ContentViewReadModel {
         ContentViewReadModel(
             lists: lists,
             allTasks: allTasks,
@@ -26,6 +26,8 @@ struct ContentView: View {
     }
 
     var body: some View {
+        let readModel = makeReadModel()
+
         VStack(spacing: 0) {
             HeaderView(
                 selectedListID: $selectedListID,
@@ -42,7 +44,9 @@ struct ContentView: View {
                     listToDelete = list
                     showDeleteConfirm = true
                 },
-                onDeleteCompleted: deleteCompleted,
+                onDeleteCompleted: {
+                    deleteCompleted(readModel.completedTasks)
+                },
                 onSortChanged: { option in
                     readModel.selectedList?.sort = option
                 },
@@ -58,13 +62,13 @@ struct ContentView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if readModel.showsGroupedActiveTasks {
-                        groupedByDate
+                        groupedByDate(readModel)
                     } else {
-                        flatList
+                        flatList(readModel)
                     }
 
                     CompletedTasksSection(tasks: readModel.completedTasks) {
-                        deleteCompleted()
+                        deleteCompleted(readModel.completedTasks)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
@@ -107,7 +111,7 @@ struct ContentView: View {
 
     // MARK: - Flat list
     @ViewBuilder
-    private var flatList: some View {
+    private func flatList(_ readModel: ContentViewReadModel) -> some View {
         ForEach(readModel.activeTasks) { task in
             taskRow(task)
             Divider().padding(.leading, 12)
@@ -116,7 +120,7 @@ struct ContentView: View {
 
     // MARK: - Grouped by date
     @ViewBuilder
-    private var groupedByDate: some View {
+    private func groupedByDate(_ readModel: ContentViewReadModel) -> some View {
         ForEach(readModel.groupedActiveTasks, id: \.section) { group in
             Text(TaskDatePresentation.sectionTitle(for: group.section))
                 .font(.caption)
@@ -184,9 +188,9 @@ struct ContentView: View {
         }
     }
 
-    private func deleteCompleted() {
+    private func deleteCompleted(_ tasks: [TaskItem]) {
         withAnimation {
-            for task in readModel.completedTasks {
+            for task in tasks {
                 modelContext.delete(task)
             }
         }
