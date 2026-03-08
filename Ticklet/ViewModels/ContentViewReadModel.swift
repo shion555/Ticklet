@@ -17,7 +17,9 @@ struct ContentViewProjection {
         lists: [TaskList],
         allTasks: [TaskItem],
         selectedListID: UUID?,
-        filterMode: FilterMode
+        filterMode: FilterMode,
+        calendar: Calendar = .current,
+        now: Date = Date()
     ) {
         self.selectedListID = selectedListID
 
@@ -49,7 +51,7 @@ struct ContentViewProjection {
         let showsGroupedActiveTasks = currentSort == .dueDate || currentSort == .date
         self.showsGroupedActiveTasks = showsGroupedActiveTasks
         self.groupedActiveTasks = showsGroupedActiveTasks
-            ? Self.groupedByDate(activeTasks)
+            ? Self.groupedByDate(activeTasks, calendar: calendar, now: now)
             : []
         self.renameableSelectedList = (selectedList?.isDefault == false) ? selectedList : nil
     }

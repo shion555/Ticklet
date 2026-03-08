@@ -190,7 +190,9 @@ struct ContentViewProjectionTests {
             lists: [list],
             allTasks: tasks,
             selectedListID: list.id,
-            filterMode: .all
+            filterMode: .all,
+            calendar: Self.testCalendar,
+            now: Self.date(2026, 3, 8, 12)
         )
 
         let expectedSections = [today, later, none]
@@ -345,7 +347,9 @@ struct ContentViewProjectionTests {
             lists: [list],
             allTasks: tasks,
             selectedListID: list.id,
-            filterMode: .all
+            filterMode: .all,
+            calendar: Self.testCalendar,
+            now: Self.date(2026, 3, 8, 12)
         )
     }
 
