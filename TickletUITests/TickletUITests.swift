@@ -146,16 +146,68 @@ final class TickletUITests: XCTestCase {
         picker.click()
         XCTAssertTrue(app.menuItems[listName].waitForExistence(timeout: 2))
     }
+
+    @MainActor
+    func testAddSubtaskFromTaskContextMenu() throws {
+        let app = launchApp()
+        let taskTitle = uniqueName(prefix: "Parent")
+
+        addTask(taskTitle, app: app)
+        addEmptySubtask(toTask: taskTitle, app: app)
+
+        XCTAssertTrue(firstSubtaskRow(in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(firstSubtaskCompleteButton(in: app).waitForExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testCompletingSubtaskDoesNotMoveParentToCompletedSection() throws {
+        let app = launchApp()
+        let taskTitle = uniqueName(prefix: "Parent")
+
+        addTask(taskTitle, app: app)
+        addEmptySubtask(toTask: taskTitle, app: app)
+        XCTAssertFalse(completedSection(in: app).exists)
+
+        let completeButton = firstSubtaskCompleteButton(in: app)
+        XCTAssertTrue(completeButton.waitForExistence(timeout: 2))
+        clickCenter(of: completeButton)
+
+        XCTAssertTrue(elementWithLabel(taskTitle, in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(firstSubtaskRow(in: app).waitForExistence(timeout: 2))
+        XCTAssertFalse(completedSection(in: app).exists)
+    }
+
+    @MainActor
+    func testDeleteSubtaskRemovesOnlySubtaskRow() throws {
+        let app = launchApp()
+        let taskTitle = uniqueName(prefix: "Parent")
+
+        addTask(taskTitle, app: app)
+        addEmptySubtask(toTask: taskTitle, app: app)
+
+        let deleteButton = firstSubtaskDeleteButton(in: app)
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
+        deleteButton.click()
+
+        XCTAssertTrue(waitForElementCount(of: subtaskCompleteButtons(in: app), toEqual: 0))
+        XCTAssertTrue(elementWithLabel(taskTitle, in: app).waitForExistence(timeout: 2))
+    }
 }
 
 private extension TickletUITests {
     @MainActor
     func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments.append("--ui-testing")
         app.launch()
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         statusItem.click()
+        let addTaskField = app.descendants(matching: .any)["add-task-field"]
+        if !addTaskField.waitForExistence(timeout: 2) {
+            statusItem.click()
+        }
+        XCTAssertTrue(addTaskField.waitForExistence(timeout: 2))
         return app
     }
 
@@ -173,10 +225,11 @@ private extension TickletUITests {
 
     @MainActor
     func createList(_ name: String, app: XCUIApplication) {
-        let picker = app.descendants(matching: .any)["header-list-picker"]
-        XCTAssertTrue(picker.waitForExistence(timeout: 2))
-        picker.click()
+        openListPicker(app: app)
         let createMenuItem = app.menuItems["新しいリスト"]
+        if !createMenuItem.waitForExistence(timeout: 2) {
+            openListPicker(app: app)
+        }
         XCTAssertTrue(createMenuItem.waitForExistence(timeout: 2))
         createMenuItem.click()
 
@@ -191,19 +244,56 @@ private extension TickletUITests {
 
     @MainActor
     func selectList(_ name: String, app: XCUIApplication) {
-        let picker = app.descendants(matching: .any)["header-list-picker"]
-        XCTAssertTrue(picker.waitForExistence(timeout: 2))
-        picker.click()
+        openListPicker(app: app)
         let menuItem = app.menuItems[name]
+        if !menuItem.waitForExistence(timeout: 2) {
+            openListPicker(app: app)
+        }
         XCTAssertTrue(menuItem.waitForExistence(timeout: 2))
         menuItem.click()
     }
 
     @MainActor
+    func openListPicker(app: XCUIApplication) {
+        let picker = app.descendants(matching: .any)["header-list-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 2))
+        picker.click()
+
+        if !app.menuItems.firstMatch.waitForExistence(timeout: 1) {
+            let statusItem = app.statusItems.firstMatch
+            XCTAssertTrue(statusItem.waitForExistence(timeout: 2))
+            statusItem.click()
+            XCTAssertTrue(picker.waitForExistence(timeout: 2))
+            picker.click()
+        }
+    }
+
+    @MainActor
     func openHeaderActionsMenu(app: XCUIApplication) {
         let menu = app.buttons["header-actions-menu"]
+        if !menu.waitForExistence(timeout: 2) {
+            let statusItem = app.statusItems.firstMatch
+            XCTAssertTrue(statusItem.waitForExistence(timeout: 2))
+            statusItem.click()
+        }
         XCTAssertTrue(menu.waitForExistence(timeout: 2))
         menu.click()
+    }
+
+    @MainActor
+    func openTaskContextMenu(_ title: String, app: XCUIApplication) {
+        XCTAssertTrue(elementWithLabel(title, in: app).waitForExistence(timeout: 2))
+        let taskButton = firstTaskTitleButton(in: app)
+        XCTAssertTrue(taskButton.waitForExistence(timeout: 2))
+        taskButton.rightClick()
+    }
+
+    @MainActor
+    func addEmptySubtask(toTask taskTitle: String, app: XCUIApplication) {
+        openTaskContextMenu(taskTitle, app: app)
+        let addSubtaskItem = app.menuItems["サブタスクを追加"]
+        XCTAssertTrue(addSubtaskItem.waitForExistence(timeout: 2))
+        addSubtaskItem.click()
     }
 
     @MainActor
@@ -221,6 +311,13 @@ private extension TickletUITests {
     }
 
     @MainActor
+    func firstTaskTitleButton(in app: XCUIApplication) -> XCUIElement {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "task-title-"))
+            .firstMatch
+    }
+
+    @MainActor
     func firstTaskStarButton(in app: XCUIApplication) -> XCUIElement {
         app.buttons
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "task-star-"))
@@ -230,6 +327,31 @@ private extension TickletUITests {
     @MainActor
     func completedSection(in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any)["completed-section"]
+    }
+
+    @MainActor
+    func firstSubtaskRow(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "subtask-row-"))
+            .firstMatch
+    }
+
+    @MainActor
+    func firstSubtaskCompleteButton(in app: XCUIApplication) -> XCUIElement {
+        subtaskCompleteButtons(in: app).firstMatch
+    }
+
+    @MainActor
+    func subtaskCompleteButtons(in app: XCUIApplication) -> XCUIElementQuery {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "subtask-complete-"))
+    }
+
+    @MainActor
+    func firstSubtaskDeleteButton(in app: XCUIApplication) -> XCUIElement {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "subtask-delete-"))
+            .firstMatch
     }
 
     @MainActor
@@ -260,5 +382,21 @@ private extension TickletUITests {
     func uniqueName(prefix: String) -> String {
         let suffix = UUID().uuidString.prefix(6)
         return "\(prefix) \(suffix)"
+    }
+
+    func waitForElementCount(
+        of query: XCUIElementQuery,
+        toEqual expectedCount: Int,
+        timeout: TimeInterval = 2
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if query.count == expectedCount {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        return query.count == expectedCount
     }
 }

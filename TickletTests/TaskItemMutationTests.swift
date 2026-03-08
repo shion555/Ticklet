@@ -40,6 +40,42 @@ struct TaskItemMutationTests {
         #expect(subtask.title == "Child")
     }
 
+    @Test func makeSubtaskStartsWithIndependentDefaultState() {
+        let list = TaskList(name: "Inbox")
+        let parent = TaskItem(
+            title: "Parent",
+            details: "note",
+            dueDate: Self.date(2026, 3, 10, 8),
+            isStarred: true,
+            sortOrder: 2,
+            list: list
+        )
+        parent.recurrenceRule = .daily
+        parent.markCompleted(at: Self.date(2026, 3, 8, 9))
+
+        let subtask = parent.makeSubtask(title: "Child", sortOrder: 0)
+
+        #expect(subtask.details.isEmpty)
+        #expect(subtask.dueDate == nil)
+        #expect(subtask.recurrenceRule == nil)
+        #expect(subtask.isStarred == false)
+        #expect(subtask.isCompleted == false)
+        #expect(subtask.completedAt == nil)
+    }
+
+    @Test func toggleCompletedOnSubtaskUpdatesCompletionState() {
+        let subtask = TaskItem(title: "Child", parentID: UUID())
+        let completedAt = Self.date(2026, 3, 8, 11)
+
+        subtask.toggleCompleted(at: completedAt)
+        #expect(subtask.isCompleted == true)
+        #expect(subtask.completedAt == completedAt)
+
+        subtask.toggleCompleted(at: Self.date(2026, 3, 8, 12))
+        #expect(subtask.isCompleted == false)
+        #expect(subtask.completedAt == nil)
+    }
+
     @Test func makeNextRecurringTaskKeepsTaskAttributesButResetsCompletion() {
         let list = TaskList(name: "Inbox")
         let task = TaskItem(

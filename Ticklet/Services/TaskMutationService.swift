@@ -66,12 +66,28 @@ struct TaskMutationService {
     }
 
     func deleteTask(_ task: TaskItem) {
+        detachFromParentIfNeeded(task)
         modelContext.delete(task)
     }
 
     func deleteCompletedTasks(_ tasks: [TaskItem]) {
         for task in tasks {
-            modelContext.delete(task)
+            deleteTask(task)
         }
+    }
+
+    private func detachFromParentIfNeeded(_ task: TaskItem) {
+        guard let parentID = task.parentID else { return }
+        guard let parent = try? modelContext.fetch(
+            FetchDescriptor<TaskItem>(
+                predicate: #Predicate<TaskItem> { candidate in
+                    candidate.id == parentID
+                }
+            )
+        ).first else {
+            return
+        }
+
+        parent.subtasks.removeAll { $0.id == task.id }
     }
 }

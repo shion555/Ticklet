@@ -41,6 +41,7 @@ struct TaskRowHeaderView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .accessibilityIdentifier("task-title-\(taskID.uuidString)")
                 .buttonStyle(.plain)
             }
 

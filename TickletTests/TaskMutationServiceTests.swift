@@ -146,6 +146,26 @@ struct TaskMutationServiceTests {
         #expect(parent.subtasks.count == 2)
     }
 
+    @Test func addSubtaskPersistsAndAppendsSequentialSortOrder() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let parent = TaskItem(title: "Parent")
+        context.insert(parent)
+
+        let first = service.addSubtask(title: "First", to: parent)
+        let second = service.addSubtask(title: "Second", to: parent)
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        let storedSubtasks = tasks.filter { $0.parentID == parent.id }.sorted { $0.sortOrder < $1.sortOrder }
+
+        #expect(parent.subtasks.count == 2)
+        #expect(storedSubtasks.map(\.title) == ["First", "Second"])
+        #expect(storedSubtasks.map(\.sortOrder) == [0, 1])
+        #expect(first.parentID == parent.id)
+        #expect(second.parentID == parent.id)
+    }
+
     @Test func toggleSubtaskCompletionFlipsCompletionState() {
         let service = TaskMutationService(modelContext: ModelContext(try! SwiftDataTestSupport.makeContainer()))
         let subtask = TaskItem(title: "Subtask", parentID: UUID())
@@ -187,6 +207,54 @@ struct TaskMutationServiceTests {
 
         let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
         #expect(tasks.map(\.title) == ["Second"])
+    }
+
+    @Test func deleteTaskRemovesSubtaskWithoutDeletingParent() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let parent = TaskItem(title: "Parent")
+        context.insert(parent)
+        let subtask = service.addSubtask(title: "Child", to: parent)
+
+        service.deleteTask(subtask)
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(tasks.map(\.title) == ["Parent"])
+        #expect(parent.subtasks.isEmpty)
+    }
+
+    @Test func deleteTaskCascadesToPersistedSubtasksWhenDeletingParent() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let parent = TaskItem(title: "Parent")
+        context.insert(parent)
+        _ = service.addSubtask(title: "Child A", to: parent)
+        _ = service.addSubtask(title: "Child B", to: parent)
+
+        service.deleteTask(parent)
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(tasks.isEmpty)
+    }
+
+    @Test func deleteCompletedTasksRemovesCompletedSubtasksAndLeavesIncompleteSiblings() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let service = TaskMutationService(modelContext: context)
+        let parent = TaskItem(title: "Parent")
+        context.insert(parent)
+        let doneSubtask = service.addSubtask(title: "Done", to: parent)
+        let openSubtask = service.addSubtask(title: "Open", to: parent)
+        doneSubtask.markCompleted(at: Self.date(2026, 3, 8, 10))
+
+        service.deleteCompletedTasks([doneSubtask])
+
+        let tasks = try SwiftDataTestSupport.fetchTasks(in: context)
+        #expect(tasks.map(\.title).sorted() == ["Open", "Parent"])
+        #expect(parent.subtasks.map(\.title) == ["Open"])
+        #expect(openSubtask.isCompleted == false)
     }
 
     private static var testCalendar: Calendar {
