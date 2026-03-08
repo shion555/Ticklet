@@ -197,16 +197,26 @@ private struct ContentViewScene: View {
     var body: some View {
         @Bindable var coordinator = coordinator
 
-        ContentViewLayout(
-            projection: projection,
-            coordinator: coordinator,
-            onCompleteTask: onCompleteTask,
-            onDeleteCompleted: onDeleteCompleted,
-            addTaskActions: addTaskActions,
-            completedTaskActions: completedTaskActions,
-            taskRowActions: taskRowActions
-        )
+        ZStack {
+            ContentViewLayout(
+                projection: projection,
+                coordinator: coordinator,
+                onCompleteTask: onCompleteTask,
+                onDeleteCompleted: onDeleteCompleted,
+                addTaskActions: addTaskActions,
+                completedTaskActions: completedTaskActions,
+                taskRowActions: taskRowActions
+            )
+            .blur(radius: coordinator.isPresentingDeleteConfirm ? 1.5 : 0)
+
+            if coordinator.isPresentingDeleteConfirm, let list = coordinator.listToDelete {
+                deleteConfirmationOverlay(list: list)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+        }
         .frame(width: 320, height: 480)
+        .animation(.easeInOut(duration: 0.15), value: coordinator.isPresentingDeleteConfirm)
         .onAppear(perform: onAppear)
         .popover(isPresented: $coordinator.isPresentingCreateList) {
             CreateListPopover(
@@ -224,31 +234,60 @@ private struct ContentViewScene: View {
                 )
             }
         }
-        .alert(
-            "リストを削除しますか？",
-            isPresented: $coordinator.isPresentingDeleteConfirm,
-            presenting: coordinator.listToDelete
-        ) { _ in
-            Button("削除", role: .destructive, action: onConfirmDeleteList)
-            Button("キャンセル", role: .cancel) {
-                coordinator.dismissDeleteConfirm()
-            }
-        } message: { _ in
-            Text("このリストとすべてのタスクが削除されます。")
-        }
         .onChange(of: coordinator.isPresentingRenameList) { _, isPresented in
             if !isPresented, coordinator.listToRename != nil {
                 coordinator.dismissRenameList()
             }
         }
-        .onChange(of: coordinator.isPresentingDeleteConfirm) { _, isPresented in
-            if !isPresented, coordinator.listToDelete != nil {
-                coordinator.dismissDeleteConfirm()
-            }
-        }
         .onKeyPress(.escape) {
             coordinator.handleEscapeKeyPress() ? .handled : .ignored
         }
+    }
+
+    @ViewBuilder
+    private func deleteConfirmationOverlay(list: TaskList) -> some View {
+        ZStack {
+            Rectangle()
+                .fill(.black.opacity(0.2))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    coordinator.dismissDeleteConfirm()
+                }
+                .accessibilityIdentifier("delete-list-backdrop")
+
+            VStack(alignment: .leading, spacing: 14) {
+                Text("リストを削除しますか？")
+                    .font(.headline)
+
+                Text("「\(list.name)」とすべてのタスクが削除されます。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button("キャンセル") {
+                        coordinator.dismissDeleteConfirm()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("delete-list-cancel")
+
+                    Spacer()
+
+                    Button("削除", role: .destructive, action: onConfirmDeleteList)
+                        .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("delete-list-confirm")
+                }
+            }
+            .padding(16)
+            .frame(width: 260)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.separator.opacity(0.35))
+            )
+            .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+            .accessibilityIdentifier("delete-list-dialog")
+        }
+        .ignoresSafeArea()
     }
 }
 

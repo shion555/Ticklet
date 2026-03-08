@@ -23,6 +23,11 @@ final class ContentViewCoordinator {
     }
 
     func handleEscapeKeyPress() -> Bool {
+        if isPresentingDeleteConfirm {
+            dismissDeleteConfirm()
+            return true
+        }
+
         guard expandedTaskID != nil else { return false }
         collapseExpandedTask()
         return true

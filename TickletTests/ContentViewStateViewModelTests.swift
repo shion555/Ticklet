@@ -105,6 +105,28 @@ struct ContentViewCoordinatorTests {
         #expect(viewModel.listToDelete == nil)
     }
 
+    @Test func confirmDeleteListStillDeletesWhenPresentationFlagIsAlreadyFalse() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let listService = ListMutationService(modelContext: context)
+        let viewModel = ContentViewCoordinator()
+        let deleted = TaskList(name: "Deleted")
+        let fallback = TaskList(name: "Fallback", isDefault: true)
+        context.insert(deleted)
+        context.insert(fallback)
+
+        viewModel.selectedListID = deleted.id
+        viewModel.listToDelete = deleted
+        viewModel.isPresentingDeleteConfirm = false
+
+        viewModel.confirmDeleteList(using: listService, existingLists: [deleted, fallback])
+
+        let lists = try SwiftDataTestSupport.fetchLists(in: context)
+        #expect(lists.map(\.id) == [fallback.id])
+        #expect(viewModel.selectedListID == fallback.id)
+        #expect(viewModel.listToDelete == nil)
+    }
+
     @Test func handleEscapeKeyPressCollapsesExpandedTaskWhenPresent() {
         let viewModel = ContentViewCoordinator()
         let taskID = UUID()
@@ -112,6 +134,23 @@ struct ContentViewCoordinatorTests {
         #expect(viewModel.handleEscapeKeyPress() == false)
 
         viewModel.expandedTaskID = taskID
+        #expect(viewModel.handleEscapeKeyPress() == true)
+        #expect(viewModel.expandedTaskID == nil)
+    }
+
+    @Test func handleEscapeKeyPressDismissesDeleteConfirmBeforeCollapsingTask() {
+        let viewModel = ContentViewCoordinator()
+        let list = TaskList(name: "Work")
+        let taskID = UUID()
+
+        viewModel.expandedTaskID = taskID
+        viewModel.presentDeleteList(list)
+
+        #expect(viewModel.handleEscapeKeyPress() == true)
+        #expect(viewModel.isPresentingDeleteConfirm == false)
+        #expect(viewModel.listToDelete == nil)
+        #expect(viewModel.expandedTaskID == taskID)
+
         #expect(viewModel.handleEscapeKeyPress() == true)
         #expect(viewModel.expandedTaskID == nil)
     }

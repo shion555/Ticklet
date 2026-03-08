@@ -90,6 +90,62 @@ final class TickletUITests: XCTestCase {
         XCTAssertTrue(elementWithLabel(taskA, in: app).waitForExistence(timeout: 2))
         XCTAssertFalse(elementWithLabel(taskB, in: app).exists)
     }
+
+    @MainActor
+    func testDeleteListRemovesItFromPickerAndFallsBackToDefault() throws {
+        let app = launchApp()
+        let listName = uniqueName(prefix: "Delete")
+        let taskTitle = uniqueName(prefix: "Task")
+
+        createList(listName, app: app)
+        selectList(listName, app: app)
+        addTask(taskTitle, app: app)
+
+        openHeaderActionsMenu(app: app)
+        let deleteItem = app.menuItems["リストを削除"]
+        XCTAssertTrue(deleteItem.waitForExistence(timeout: 2))
+        deleteItem.click()
+
+        let dialog = app.descendants(matching: .any)["delete-list-dialog"]
+        XCTAssertTrue(dialog.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.statusItems.firstMatch.exists)
+
+        let deleteButton = app.buttons["delete-list-confirm"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
+        deleteButton.click()
+
+        XCTAssertTrue(app.staticTexts["マイタスク"].waitForExistence(timeout: 2))
+
+        let picker = app.descendants(matching: .any)["header-list-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 2))
+        picker.click()
+        XCTAssertFalse(app.menuItems[listName].waitForExistence(timeout: 1))
+    }
+
+    @MainActor
+    func testDeleteListCancelKeepsListAvailable() throws {
+        let app = launchApp()
+        let listName = uniqueName(prefix: "Keep")
+
+        createList(listName, app: app)
+        selectList(listName, app: app)
+
+        openHeaderActionsMenu(app: app)
+        let deleteItem = app.menuItems["リストを削除"]
+        XCTAssertTrue(deleteItem.waitForExistence(timeout: 2))
+        deleteItem.click()
+
+        let cancelButton = app.buttons["delete-list-cancel"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 2))
+        cancelButton.click()
+
+        XCTAssertFalse(app.descendants(matching: .any)["delete-list-dialog"].exists)
+
+        let picker = app.descendants(matching: .any)["header-list-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 2))
+        picker.click()
+        XCTAssertTrue(app.menuItems[listName].waitForExistence(timeout: 2))
+    }
 }
 
 private extension TickletUITests {
@@ -141,6 +197,13 @@ private extension TickletUITests {
         let menuItem = app.menuItems[name]
         XCTAssertTrue(menuItem.waitForExistence(timeout: 2))
         menuItem.click()
+    }
+
+    @MainActor
+    func openHeaderActionsMenu(app: XCUIApplication) {
+        let menu = app.buttons["header-actions-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 2))
+        menu.click()
     }
 
     @MainActor
