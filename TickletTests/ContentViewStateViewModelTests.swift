@@ -1,35 +1,36 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Ticklet
 
 @MainActor
-struct ContentViewStateViewModelTests {
+struct ContentViewCoordinatorTests {
     @Test func managesCreateRenameAndDeletePresentationState() {
-        let viewModel = ContentViewStateViewModel()
+        let viewModel = ContentViewCoordinator()
         let list = TaskList(name: "Work")
 
         viewModel.presentCreateList()
-        #expect(viewModel.showCreateList == true)
+        #expect(viewModel.isPresentingCreateList == true)
         viewModel.dismissCreateList()
-        #expect(viewModel.showCreateList == false)
+        #expect(viewModel.isPresentingCreateList == false)
 
         viewModel.presentRenameList(list)
-        #expect(viewModel.showRenameList == true)
+        #expect(viewModel.isPresentingRenameList == true)
         #expect(viewModel.listToRename?.id == list.id)
         viewModel.dismissRenameList()
-        #expect(viewModel.showRenameList == false)
+        #expect(viewModel.isPresentingRenameList == false)
         #expect(viewModel.listToRename == nil)
 
         viewModel.presentDeleteList(list)
-        #expect(viewModel.showDeleteConfirm == true)
+        #expect(viewModel.isPresentingDeleteConfirm == true)
         #expect(viewModel.listToDelete?.id == list.id)
         viewModel.dismissDeleteConfirm()
-        #expect(viewModel.showDeleteConfirm == false)
+        #expect(viewModel.isPresentingDeleteConfirm == false)
         #expect(viewModel.listToDelete == nil)
     }
 
     @Test func togglesExpandedTaskAndCanCollapse() {
-        let viewModel = ContentViewStateViewModel()
+        let viewModel = ContentViewCoordinator()
         let taskID = UUID()
 
         viewModel.toggleExpandedTask(taskID)
@@ -44,7 +45,7 @@ struct ContentViewStateViewModelTests {
     }
 
     @Test func togglesFilterMode() {
-        let viewModel = ContentViewStateViewModel()
+        let viewModel = ContentViewCoordinator()
 
         #expect(viewModel.filterMode == .all)
         viewModel.toggleFilterMode()
@@ -53,36 +54,65 @@ struct ContentViewStateViewModelTests {
         #expect(viewModel.filterMode == .all)
     }
 
-    @Test func syncInitialSelectionPrefersDefaultThenFirstAndKeepsExistingSelection() {
-        let viewModel = ContentViewStateViewModel()
+    @Test func bootstrapPrefersDefaultThenFirstAndKeepsExistingSelection() {
+        let container = try! SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let listService = ListMutationService(modelContext: context)
+        let viewModel = ContentViewCoordinator()
         let first = TaskList(name: "First")
         let second = TaskList(name: "Second")
+        first.sortOrder = 0
+        second.sortOrder = 1
+        context.insert(first)
+        context.insert(second)
         let defaultID = second.id
+        second.isDefault = true
 
-        viewModel.syncInitialSelection(with: [first, second], defaultListID: defaultID)
+        viewModel.bootstrap(using: listService, existingLists: [first, second])
         #expect(viewModel.selectedListID == defaultID)
 
         let another = TaskList(name: "Another")
-        let noDefaultViewModel = ContentViewStateViewModel()
-        noDefaultViewModel.syncInitialSelection(with: [another, first], defaultListID: nil)
+        let noDefaultViewModel = ContentViewCoordinator()
+        noDefaultViewModel.bootstrap(using: listService, existingLists: [another, first])
         #expect(noDefaultViewModel.selectedListID == another.id)
 
-        let kept = ContentViewStateViewModel()
+        let kept = ContentViewCoordinator()
         kept.selectedListID = first.id
-        kept.syncInitialSelection(with: [second], defaultListID: second.id)
+        kept.bootstrap(using: listService, existingLists: [second])
         #expect(kept.selectedListID == first.id)
     }
 
-    @Test func applyListDeletionFallbackOnlyAffectsDeletedSelection() {
-        let viewModel = ContentViewStateViewModel()
+    @Test func confirmDeleteListAppliesFallbackOnlyForDeletedSelection() {
+        let listService = ListMutationService(modelContext: ModelContext(try! SwiftDataTestSupport.makeContainer()))
+        let viewModel = ContentViewCoordinator()
         let selectedID = UUID()
         let fallbackID = UUID()
+        let deleted = TaskList(name: "Deleted")
+        deleted.id = selectedID
+        let fallback = TaskList(name: "Fallback", isDefault: true)
+        fallback.id = fallbackID
 
         viewModel.selectedListID = selectedID
-        viewModel.applyListDeletionFallback(currentDeletedListID: UUID(), fallbackSelectedListID: fallbackID)
+        viewModel.listToDelete = TaskList(name: "Other")
+        viewModel.confirmDeleteList(using: listService, existingLists: [fallback])
         #expect(viewModel.selectedListID == selectedID)
 
-        viewModel.applyListDeletionFallback(currentDeletedListID: selectedID, fallbackSelectedListID: fallbackID)
+        viewModel.listToDelete = deleted
+        viewModel.isPresentingDeleteConfirm = true
+        viewModel.confirmDeleteList(using: listService, existingLists: [deleted, fallback])
         #expect(viewModel.selectedListID == fallbackID)
+        #expect(viewModel.isPresentingDeleteConfirm == false)
+        #expect(viewModel.listToDelete == nil)
+    }
+
+    @Test func handleEscapeKeyPressCollapsesExpandedTaskWhenPresent() {
+        let viewModel = ContentViewCoordinator()
+        let taskID = UUID()
+
+        #expect(viewModel.handleEscapeKeyPress() == false)
+
+        viewModel.expandedTaskID = taskID
+        #expect(viewModel.handleEscapeKeyPress() == true)
+        #expect(viewModel.expandedTaskID == nil)
     }
 }

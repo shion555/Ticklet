@@ -9,16 +9,16 @@ struct ContentViewIntegrationLogicTests {
         let container = try SwiftDataTestSupport.makeContainer()
         let context = ModelContext(container)
         let listService = ListMutationService(modelContext: context)
-        let viewModel = ContentViewStateViewModel()
+        let viewModel = ContentViewCoordinator()
 
-        let defaultList = listService.initializeDefaultList(existingLists: [])
         let lists = try SwiftDataTestSupport.fetchLists(in: context)
-
-        viewModel.syncInitialSelection(with: lists, defaultListID: defaultList?.id)
+        viewModel.bootstrap(using: listService, existingLists: lists)
+        let fetchedLists = try SwiftDataTestSupport.fetchLists(in: context)
+        let defaultList = fetchedLists.first(where: \.isDefault)
 
         #expect(defaultList != nil)
-        #expect(lists.count == 1)
-        #expect(lists.first?.isDefault == true)
+        #expect(fetchedLists.count == 1)
+        #expect(fetchedLists.first?.isDefault == true)
         #expect(viewModel.selectedListID == defaultList?.id)
     }
 
@@ -26,25 +26,18 @@ struct ContentViewIntegrationLogicTests {
         let defaultList = TaskList(name: "Default", isDefault: true)
         let otherList = TaskList(name: "Other")
         let selectedList = TaskList(name: "Selected")
-        let viewModel = ContentViewStateViewModel()
+        let viewModel = ContentViewCoordinator()
         let listService = ListMutationService(modelContext: ModelContext(try! SwiftDataTestSupport.makeContainer()))
 
         viewModel.selectedListID = selectedList.id
-        let fallbackID = listService.fallbackSelectedListID(
-            afterDeleting: selectedList,
-            remainingLists: [selectedList, otherList, defaultList]
-        )
-        viewModel.applyListDeletionFallback(
-            currentDeletedListID: selectedList.id,
-            fallbackSelectedListID: fallbackID
-        )
+        viewModel.listToDelete = selectedList
+        viewModel.isPresentingDeleteConfirm = true
+        viewModel.confirmDeleteList(using: listService, existingLists: [selectedList, otherList, defaultList])
         #expect(viewModel.selectedListID == defaultList.id)
 
         viewModel.selectedListID = otherList.id
-        viewModel.applyListDeletionFallback(
-            currentDeletedListID: selectedList.id,
-            fallbackSelectedListID: nil
-        )
+        viewModel.listToDelete = selectedList
+        viewModel.confirmDeleteList(using: listService, existingLists: [selectedList, otherList])
         #expect(viewModel.selectedListID == otherList.id)
     }
 

@@ -3,15 +3,15 @@ import Observation
 
 @MainActor
 @Observable
-final class ContentViewStateViewModel {
+final class ContentViewCoordinator {
     var selectedListID: UUID?
     var filterMode: FilterMode = .all
     var expandedTaskID: UUID?
 
-    var showCreateList = false
-    var showRenameList = false
+    var isPresentingCreateList = false
+    var isPresentingRenameList = false
     var listToRename: TaskList?
-    var showDeleteConfirm = false
+    var isPresentingDeleteConfirm = false
     var listToDelete: TaskList?
 
     func toggleExpandedTask(_ taskID: UUID) {
@@ -22,31 +22,37 @@ final class ContentViewStateViewModel {
         expandedTaskID = nil
     }
 
+    func handleEscapeKeyPress() -> Bool {
+        guard expandedTaskID != nil else { return false }
+        collapseExpandedTask()
+        return true
+    }
+
     func presentCreateList() {
-        showCreateList = true
+        isPresentingCreateList = true
     }
 
     func presentRenameList(_ list: TaskList) {
         listToRename = list
-        showRenameList = true
+        isPresentingRenameList = true
     }
 
     func presentDeleteList(_ list: TaskList) {
         listToDelete = list
-        showDeleteConfirm = true
+        isPresentingDeleteConfirm = true
     }
 
     func dismissCreateList() {
-        showCreateList = false
+        isPresentingCreateList = false
     }
 
     func dismissRenameList() {
-        showRenameList = false
+        isPresentingRenameList = false
         listToRename = nil
     }
 
     func dismissDeleteConfirm() {
-        showDeleteConfirm = false
+        isPresentingDeleteConfirm = false
         listToDelete = nil
     }
 
@@ -58,12 +64,32 @@ final class ContentViewStateViewModel {
         filterMode = filterMode == .all ? .starred : .all
     }
 
-    func syncInitialSelection(with lists: [TaskList], defaultListID: UUID?) {
+    func bootstrap(using listMutationService: ListMutationService, existingLists: [TaskList]) {
+        let defaultList = listMutationService.initializeDefaultList(existingLists: existingLists)
+        let defaultListID = defaultList?.id ?? existingLists.first(where: \.isDefault)?.id
+        syncInitialSelection(with: existingLists, defaultListID: defaultListID)
+    }
+
+    func confirmDeleteList(using listMutationService: ListMutationService, existingLists: [TaskList]) {
+        guard let list = listToDelete else { return }
+        listMutationService.deleteList(list)
+        let fallbackSelectedListID = listMutationService.fallbackSelectedListID(
+            afterDeleting: list,
+            remainingLists: existingLists
+        )
+        applyListDeletionFallback(
+            currentDeletedListID: list.id,
+            fallbackSelectedListID: fallbackSelectedListID
+        )
+        dismissDeleteConfirm()
+    }
+
+    private func syncInitialSelection(with lists: [TaskList], defaultListID: UUID?) {
         guard selectedListID == nil else { return }
         selectedListID = defaultListID ?? lists.first?.id
     }
 
-    func applyListDeletionFallback(currentDeletedListID: UUID, fallbackSelectedListID: UUID?) {
+    private func applyListDeletionFallback(currentDeletedListID: UUID, fallbackSelectedListID: UUID?) {
         guard selectedListID == currentDeletedListID else { return }
         selectedListID = fallbackSelectedListID
     }

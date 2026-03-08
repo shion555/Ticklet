@@ -6,7 +6,7 @@ struct ContentView: View {
     @Query(sort: \TaskList.sortOrder) private var lists: [TaskList]
     @Query private var allTasks: [TaskItem]
 
-    @State private var viewModel = ContentViewStateViewModel()
+    @State private var coordinator = ContentViewCoordinator()
 
     private var taskMutationService: TaskMutationService {
         TaskMutationService(modelContext: modelContext)
@@ -20,28 +20,131 @@ struct ContentView: View {
         ContentViewReadModel(
             lists: lists,
             allTasks: allTasks,
-            selectedListID: viewModel.selectedListID,
-            filterMode: viewModel.filterMode
+            selectedListID: coordinator.selectedListID,
+            filterMode: coordinator.filterMode
         )
     }
 
     var body: some View {
         let readModel = makeReadModel()
 
+        ContentViewScene(
+            lists: lists,
+            readModel: readModel,
+            coordinator: coordinator,
+            onAppear: initializeDefaultList,
+            onCompleteTask: completeTask,
+            onDeleteCompleted: deleteCompleted,
+            onConfirmDeleteList: confirmDeleteList
+        )
+    }
+
+    private func initializeDefaultList() {
+        coordinator.bootstrap(using: listMutationService, existingLists: lists)
+    }
+
+    private func completeTask(_ task: TaskItem) {
+        withAnimation {
+            taskMutationService.completeTask(task)
+        }
+    }
+
+    private func deleteCompleted(_ tasks: [TaskItem]) {
+        withAnimation {
+            taskMutationService.deleteCompletedTasks(tasks)
+        }
+    }
+
+    private func confirmDeleteList() {
+        withAnimation {
+            coordinator.confirmDeleteList(using: listMutationService, existingLists: lists)
+        }
+    }
+}
+
+private struct ContentViewScene: View {
+    let lists: [TaskList]
+    let readModel: ContentViewReadModel
+    let coordinator: ContentViewCoordinator
+    let onAppear: () -> Void
+    let onCompleteTask: (TaskItem) -> Void
+    let onDeleteCompleted: ([TaskItem]) -> Void
+    let onConfirmDeleteList: () -> Void
+
+    var body: some View {
+        @Bindable var coordinator = coordinator
+
+        ContentViewLayout(
+            readModel: readModel,
+            coordinator: coordinator,
+            onCompleteTask: onCompleteTask,
+            onDeleteCompleted: onDeleteCompleted
+        )
+        .frame(width: 320, height: 480)
+        .onAppear(perform: onAppear)
+        .popover(isPresented: $coordinator.isPresentingCreateList) {
+            CreateListPopover(
+                isPresented: $coordinator.isPresentingCreateList,
+                existingCount: lists.count
+            )
+        }
+        .popover(isPresented: $coordinator.isPresentingRenameList) {
+            if let list = coordinator.listToRename {
+                RenameListPopover(
+                    list: list,
+                    isPresented: $coordinator.isPresentingRenameList
+                )
+            }
+        }
+        .alert(
+            "リストを削除しますか？",
+            isPresented: $coordinator.isPresentingDeleteConfirm,
+            presenting: coordinator.listToDelete
+        ) { _ in
+            Button("削除", role: .destructive, action: onConfirmDeleteList)
+            Button("キャンセル", role: .cancel) {
+                coordinator.dismissDeleteConfirm()
+            }
+        } message: { _ in
+            Text("このリストとすべてのタスクが削除されます。")
+        }
+        .onChange(of: coordinator.isPresentingRenameList) { _, isPresented in
+            if !isPresented, coordinator.listToRename != nil {
+                coordinator.dismissRenameList()
+            }
+        }
+        .onChange(of: coordinator.isPresentingDeleteConfirm) { _, isPresented in
+            if !isPresented, coordinator.listToDelete != nil {
+                coordinator.dismissDeleteConfirm()
+            }
+        }
+        .onKeyPress(.escape) {
+            coordinator.handleEscapeKeyPress() ? .handled : .ignored
+        }
+    }
+}
+
+private struct ContentViewLayout: View {
+    let readModel: ContentViewReadModel
+    let coordinator: ContentViewCoordinator
+    let onCompleteTask: (TaskItem) -> Void
+    let onDeleteCompleted: ([TaskItem]) -> Void
+
+    var body: some View {
         VStack(spacing: 0) {
             HeaderView(
                 lists: readModel.sortedLists,
-                selectedListID: viewModel.selectedListID,
+                selectedListID: coordinator.selectedListID,
                 selectedListName: readModel.selectedListName,
                 selectedList: readModel.selectedList,
-                filterMode: viewModel.filterMode,
-                onSelectList: viewModel.selectList,
-                onToggleFilterMode: viewModel.toggleFilterMode,
-                onCreateList: viewModel.presentCreateList,
-                onRenameList: viewModel.presentRenameList,
-                onDeleteList: viewModel.presentDeleteList,
+                filterMode: coordinator.filterMode,
+                onSelectList: coordinator.selectList,
+                onToggleFilterMode: coordinator.toggleFilterMode,
+                onCreateList: coordinator.presentCreateList,
+                onRenameList: coordinator.presentRenameList,
+                onDeleteList: coordinator.presentDeleteList,
                 onDeleteCompleted: {
-                    deleteCompleted(readModel.completedTasks)
+                    onDeleteCompleted(readModel.completedTasks)
                 },
                 onSortChanged: { option in
                     readModel.selectedList?.sort = option
@@ -57,105 +160,20 @@ struct ContentView: View {
 
             TaskListContentView(
                 readModel: readModel,
-                expandedTaskID: viewModel.expandedTaskID,
+                expandedTaskID: coordinator.expandedTaskID,
                 onTapTask: toggleExpandedTask,
-                onCompleteTask: completeTask,
+                onCompleteTask: onCompleteTask,
                 onDeleteCompleted: {
-                    deleteCompleted(readModel.completedTasks)
+                    onDeleteCompleted(readModel.completedTasks)
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(width: 320, height: 480)
-        .onAppear {
-            initializeDefaultList()
-        }
-        .popover(isPresented: $viewModel.showCreateList) {
-            CreateListPopover(
-                isPresented: Binding(
-                    get: { viewModel.showCreateList },
-                    set: { newValue in
-                        if newValue {
-                            viewModel.showCreateList = true
-                        } else {
-                            viewModel.dismissCreateList()
-                        }
-                    }
-                ),
-                existingCount: lists.count
-            )
-        }
-        .popover(isPresented: $viewModel.showRenameList) {
-            if let list = viewModel.listToRename {
-                RenameListPopover(
-                    list: list,
-                    isPresented: Binding(
-                        get: { viewModel.showRenameList },
-                        set: { newValue in
-                            if newValue {
-                                viewModel.showRenameList = true
-                            } else {
-                                viewModel.dismissRenameList()
-                            }
-                        }
-                    )
-                )
-            }
-        }
-        .alert("リストを削除しますか？", isPresented: $viewModel.showDeleteConfirm) {
-            Button("削除", role: .destructive) {
-                if let list = viewModel.listToDelete {
-                    withAnimation {
-                        listMutationService.deleteList(list)
-                        let fallbackSelectedListID = listMutationService.fallbackSelectedListID(
-                            afterDeleting: list,
-                            remainingLists: lists
-                        )
-                        viewModel.applyListDeletionFallback(
-                            currentDeletedListID: list.id,
-                            fallbackSelectedListID: fallbackSelectedListID
-                        )
-                        viewModel.dismissDeleteConfirm()
-                    }
-                }
-            }
-            Button("キャンセル", role: .cancel) {
-                viewModel.dismissDeleteConfirm()
-            }
-        } message: {
-            Text("このリストとすべてのタスクが削除されます。")
-        }
-        .onKeyPress(.escape) {
-            if viewModel.expandedTaskID != nil {
-                viewModel.collapseExpandedTask()
-                return .handled
-            }
-            return .ignored
         }
     }
 
     private func toggleExpandedTask(_ task: TaskItem) {
         withAnimation(.easeInOut(duration: 0.2)) {
-            viewModel.toggleExpandedTask(task.id)
-        }
-    }
-
-    // MARK: - Actions
-    private func initializeDefaultList() {
-        let defaultList = listMutationService.initializeDefaultList(existingLists: lists)
-        let defaultListID = defaultList?.id ?? lists.first(where: \.isDefault)?.id
-        viewModel.syncInitialSelection(with: lists, defaultListID: defaultListID)
-    }
-
-    private func completeTask(_ task: TaskItem) {
-        withAnimation {
-            taskMutationService.completeTask(task)
-        }
-    }
-
-    private func deleteCompleted(_ tasks: [TaskItem]) {
-        withAnimation {
-            taskMutationService.deleteCompletedTasks(tasks)
+            coordinator.toggleExpandedTask(task.id)
         }
     }
 }
