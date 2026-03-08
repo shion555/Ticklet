@@ -51,16 +51,16 @@ struct ContentViewIntegrationLogicTests {
         completedWork.isCompleted = true
         let activePersonal = TaskItem(title: "Alpha", sortOrder: 0, list: personal)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [personal, work],
             allTasks: [activeWork, completedWork, activePersonal],
             selectedListID: work.id,
             filterMode: .all
         )
 
-        #expect(readModel.selectedList?.id == work.id)
-        #expect(readModel.currentSort == .title)
-        #expect(readModel.activeTasks.map(\.title) == ["Bravo"])
-        #expect(readModel.completedTasks.map(\.title) == ["Done"])
+        #expect(projection.selectedList?.id == work.id)
+        #expect(projection.currentSort == .title)
+        #expect(projection.activeTasks.map(\.title) == ["Bravo"])
+        #expect(projection.completedTasks.map(\.title) == ["Done"])
     }
 }

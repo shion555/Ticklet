@@ -2,53 +2,53 @@ import Foundation
 import Testing
 @testable import Ticklet
 
-struct ContentViewReadModelTests {
+struct ContentViewProjectionTests {
     @Test func fallsBackWhenNoListIsSelected() {
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [],
             allTasks: [],
             selectedListID: nil,
             filterMode: .all
         )
 
-        #expect(readModel.selectedList == nil)
-        #expect(readModel.selectedListID == nil)
-        #expect(readModel.selectedListName == "マイタスク")
-        #expect(readModel.currentSort == .manual)
-        #expect(readModel.renameableSelectedList == nil)
+        #expect(projection.selectedList == nil)
+        #expect(projection.selectedListID == nil)
+        #expect(projection.selectedListName == "マイタスク")
+        #expect(projection.currentSort == .manual)
+        #expect(projection.renameableSelectedList == nil)
     }
 
     @Test func unknownSelectedListFallsBackToDefaultPresentation() {
         let defaultList = TaskList(name: "Default", isDefault: true)
         defaultList.sort = .dueDate
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [defaultList],
             allTasks: [],
             selectedListID: UUID(),
             filterMode: .all
         )
 
-        #expect(readModel.selectedList == nil)
-        #expect(readModel.selectedListName == "マイタスク")
-        #expect(readModel.currentSort == .manual)
+        #expect(projection.selectedList == nil)
+        #expect(projection.selectedListName == "マイタスク")
+        #expect(projection.currentSort == .manual)
     }
 
     @Test func reflectsSelectedListMetadata() {
         let list = TaskList(name: "Work", sortOrder: 2)
         list.sort = .title
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [list],
             allTasks: [],
             selectedListID: list.id,
             filterMode: .all
         )
 
-        #expect(readModel.selectedList?.id == list.id)
-        #expect(readModel.selectedListName == "Work")
-        #expect(readModel.currentSort == .title)
-        #expect(readModel.renameableSelectedList?.id == list.id)
+        #expect(projection.selectedList?.id == list.id)
+        #expect(projection.selectedListName == "Work")
+        #expect(projection.currentSort == .title)
+        #expect(projection.renameableSelectedList?.id == list.id)
     }
 
     @Test func allFilterOnlyUsesSelectedListTopLevelIncompleteTasks() {
@@ -59,16 +59,16 @@ struct ContentViewReadModelTests {
         let subtask = makeTask(title: "subtask", list: listA, parentID: UUID())
         let otherList = makeTask(title: "other", list: listB)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [listA, listB],
             allTasks: [match, completed, subtask, otherList],
             selectedListID: listA.id,
             filterMode: .all
         )
 
-        #expect(readModel.activeTasks.map(\.title) == ["match"])
-        #expect(readModel.completedTasks.map(\.title) == ["completed"])
-        #expect(readModel.nextSortOrder == 5)
+        #expect(projection.activeTasks.map(\.title) == ["match"])
+        #expect(projection.completedTasks.map(\.title) == ["completed"])
+        #expect(projection.nextSortOrder == 5)
     }
 
     @Test func starredFilterCrossesListsForActiveAndCompletedTasks() {
@@ -79,15 +79,15 @@ struct ContentViewReadModelTests {
         let completedStar = makeTask(title: "done", list: listB, isCompleted: true, isStarred: true)
         let plain = makeTask(title: "plain", list: listA)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [listA, listB],
             allTasks: [activeStarB, plain, completedStar, activeStarA],
             selectedListID: listA.id,
             filterMode: .starred
         )
 
-        #expect(Set(readModel.activeTasks.map(\.title)) == Set(["activeA", "activeB"]))
-        #expect(readModel.completedTasks.map(\.title) == ["done"])
+        #expect(Set(projection.activeTasks.map(\.title)) == Set(["activeA", "activeB"]))
+        #expect(projection.completedTasks.map(\.title) == ["done"])
     }
 
     @Test func starredCompletedTasksStillCrossListsWithoutSelection() {
@@ -97,14 +97,14 @@ struct ContentViewReadModelTests {
         let completedStarB = makeTask(title: "doneB", list: listB, isCompleted: true, isStarred: true)
         let completedPlain = makeTask(title: "plain", list: listA, isCompleted: true)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [listA, listB],
             allTasks: [completedStarA, completedPlain, completedStarB],
             selectedListID: nil,
             filterMode: .starred
         )
 
-        #expect(Set(readModel.completedTasks.map(\.title)) == Set(["doneA", "doneB"]))
+        #expect(Set(projection.completedTasks.map(\.title)) == Set(["doneA", "doneB"]))
     }
 
     @Test func groupedActiveTasksAreEnabledForDateSorts() {
@@ -118,18 +118,18 @@ struct ContentViewReadModelTests {
         )
         task.list = list
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [list],
             allTasks: [task],
             selectedListID: list.id,
             filterMode: .all
         )
 
-        #expect(readModel.showsGroupedActiveTasks == true)
-        #expect(readModel.groupedActiveTasks.map(\.tasks).flatMap { $0 }.map(\.title) == ["upcoming"])
+        #expect(projection.showsGroupedActiveTasks == true)
+        #expect(projection.groupedActiveTasks.map(\.tasks).flatMap { $0 }.map(\.title) == ["upcoming"])
     }
 
-    @Test func groupedActiveTasksMatchQueryServiceOrder() {
+    @Test func groupedActiveTasksKeepDateSectionOrder() {
         let list = TaskList(name: "A")
         list.sort = .date
         let tasks = [
@@ -138,28 +138,32 @@ struct ContentViewReadModelTests {
             Self.makeLinkedTask(title: "later", list: list, createdAt: Self.date(2026, 3, 8, 9), dueDate: Self.date(2026, 3, 12, 10), sortOrder: 1),
         ]
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [list],
             allTasks: tasks,
             selectedListID: list.id,
             filterMode: .all
         )
 
-        let expected = TaskQueryService.groupedByDate(readModel.activeTasks)
-        #expect(readModel.groupedActiveTasks.map(\.section) == expected.map(\.section))
+        #expect(projection.groupedActiveTasks.map(\.section) == [
+            .today,
+            .upcoming(Self.testCalendar.startOfDay(for: Self.date(2026, 3, 12, 10))),
+            .noDueDate,
+        ])
+        #expect(projection.groupedActiveTasks.map { $0.tasks.map(\.title) } == [["today"], ["later"], ["none"]])
     }
 
     @Test func defaultListCannotBeRenamed() {
         let list = TaskList(name: "Default", isDefault: true)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [list],
             allTasks: [],
             selectedListID: list.id,
             filterMode: .all
         )
 
-        #expect(readModel.renameableSelectedList == nil)
+        #expect(projection.renameableSelectedList == nil)
     }
 
     @Test func listsAreSortedBySortOrder() {
@@ -167,14 +171,91 @@ struct ContentViewReadModelTests {
         let second = TaskList(name: "Second", sortOrder: 0)
         let third = TaskList(name: "Third", sortOrder: 1)
 
-        let readModel = ContentViewReadModel(
+        let projection = ContentViewProjection(
             lists: [first, second, third],
             allTasks: [],
             selectedListID: nil,
             filterMode: .all
         )
 
-        #expect(readModel.sortedLists.map(\.name) == ["Second", "Third", "First"])
+        #expect(projection.sortedLists.map(\.name) == ["Second", "Third", "First"])
+    }
+
+    @Test func selectedListAndSortUseSelectedListID() {
+        let first = TaskList(name: "First", sortOrder: 1)
+        let second = TaskList(name: "Second", sortOrder: 0)
+        first.sort = .title
+
+        let projection = ContentViewProjection(
+            lists: [second, first],
+            allTasks: [],
+            selectedListID: first.id,
+            filterMode: .all
+        )
+
+        #expect(projection.selectedList?.id == first.id)
+        #expect(projection.currentSort == .title)
+    }
+
+    @Test func sortSupportsAllModes() {
+        let list = TaskList(name: "A")
+
+        let early = Self.makeLinkedTask(
+            title: "Bravo",
+            list: list,
+            createdAt: Self.date(2026, 3, 7, 9),
+            dueDate: Self.date(2026, 3, 9, 0),
+            sortOrder: 2
+        )
+        let late = Self.makeLinkedTask(
+            title: "Alpha",
+            list: list,
+            createdAt: Self.date(2026, 3, 8, 9),
+            dueDate: nil,
+            sortOrder: 1
+        )
+        let dueSoon = Self.makeLinkedTask(
+            title: "Charlie",
+            list: list,
+            createdAt: Self.date(2026, 3, 6, 9),
+            dueDate: Self.date(2026, 3, 8, 0),
+            sortOrder: 3
+        )
+
+        list.sort = .manual
+        #expect(makeProjection(list: list, tasks: [early, late, dueSoon]).activeTasks.map(\.title) == ["Alpha", "Bravo", "Charlie"])
+
+        list.sort = .date
+        #expect(makeProjection(list: list, tasks: [early, late, dueSoon]).activeTasks.map(\.title) == ["Alpha", "Bravo", "Charlie"])
+
+        list.sort = .dueDate
+        #expect(makeProjection(list: list, tasks: [early, late, dueSoon]).activeTasks.map(\.title) == ["Charlie", "Bravo", "Alpha"])
+
+        list.sort = .title
+        #expect(makeProjection(list: list, tasks: [early, late, dueSoon]).activeTasks.map(\.title) == ["Alpha", "Bravo", "Charlie"])
+    }
+
+    @Test func dueDateGroupingKeepsSectionOrder() {
+        let list = TaskList(name: "A")
+        list.sort = .dueDate
+        let tasks = [
+            Self.makeLinkedTask(title: "noDue", list: list, createdAt: Self.date(2026, 3, 8, 9), dueDate: nil, sortOrder: 0),
+            Self.makeLinkedTask(title: "tomorrow", list: list, createdAt: Self.date(2026, 3, 8, 8), dueDate: Self.date(2026, 3, 9, 8), sortOrder: 1),
+            Self.makeLinkedTask(title: "today", list: list, createdAt: Self.date(2026, 3, 8, 7), dueDate: Self.date(2026, 3, 8, 10), sortOrder: 2),
+            Self.makeLinkedTask(title: "overdue", list: list, createdAt: Self.date(2026, 3, 8, 6), dueDate: Self.date(2026, 3, 7, 10), sortOrder: 3),
+            Self.makeLinkedTask(title: "upcoming", list: list, createdAt: Self.date(2026, 3, 8, 5), dueDate: Self.date(2026, 3, 12, 10), sortOrder: 4),
+        ]
+
+        let projection = makeProjection(list: list, tasks: tasks)
+
+        #expect(projection.groupedActiveTasks.map(\.section) == [
+            .overdue,
+            .today,
+            .tomorrow,
+            .upcoming(Self.testCalendar.startOfDay(for: Self.date(2026, 3, 12, 10))),
+            .noDueDate,
+        ])
+        #expect(projection.groupedActiveTasks.map { $0.tasks.map(\.title) } == [["overdue"], ["today"], ["tomorrow"], ["upcoming"], ["noDue"]])
     }
 
     private func makeTask(
@@ -212,6 +293,15 @@ struct ContentViewReadModelTests {
         let task = TaskItem(title: title, dueDate: dueDate, sortOrder: sortOrder)
         task.createdAt = createdAt
         return task
+    }
+
+    private func makeProjection(list: TaskList, tasks: [TaskItem]) -> ContentViewProjection {
+        ContentViewProjection(
+            lists: [list],
+            allTasks: tasks,
+            selectedListID: list.id,
+            filterMode: .all
+        )
     }
 
     private static var testCalendar: Calendar {

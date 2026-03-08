@@ -131,8 +131,8 @@ struct ContentView: View {
         )
     }
 
-    private func makeReadModel() -> ContentViewReadModel {
-        ContentViewReadModel(
+    private func makeProjection() -> ContentViewProjection {
+        ContentViewProjection(
             lists: lists,
             allTasks: allTasks,
             selectedListID: coordinator.selectedListID,
@@ -141,11 +141,11 @@ struct ContentView: View {
     }
 
     var body: some View {
-        let readModel = makeReadModel()
+        let projection = makeProjection()
 
         ContentViewScene(
             lists: lists,
-            readModel: readModel,
+            projection: projection,
             coordinator: coordinator,
             onAppear: initializeDefaultList,
             onCompleteTask: completeTask,
@@ -183,7 +183,7 @@ struct ContentView: View {
 
 private struct ContentViewScene: View {
     let lists: [TaskList]
-    let readModel: ContentViewReadModel
+    let projection: ContentViewProjection
     let coordinator: ContentViewCoordinator
     let onAppear: () -> Void
     let onCompleteTask: (TaskItem) -> Void
@@ -198,7 +198,7 @@ private struct ContentViewScene: View {
         @Bindable var coordinator = coordinator
 
         ContentViewLayout(
-            readModel: readModel,
+            projection: projection,
             coordinator: coordinator,
             onCompleteTask: onCompleteTask,
             onDeleteCompleted: onDeleteCompleted,
@@ -253,7 +253,7 @@ private struct ContentViewScene: View {
 }
 
 private struct ContentViewLayout: View {
-    let readModel: ContentViewReadModel
+    let projection: ContentViewProjection
     let coordinator: ContentViewCoordinator
     let onCompleteTask: (TaskItem) -> Void
     let onDeleteCompleted: ([TaskItem]) -> Void
@@ -264,10 +264,10 @@ private struct ContentViewLayout: View {
     var body: some View {
         VStack(spacing: 0) {
             HeaderView(
-                lists: readModel.sortedLists,
+                lists: projection.sortedLists,
                 selectedListID: coordinator.selectedListID,
-                selectedListName: readModel.selectedListName,
-                selectedList: readModel.selectedList,
+                selectedListName: projection.selectedListName,
+                selectedList: projection.selectedList,
                 filterMode: coordinator.filterMode,
                 onSelectList: coordinator.selectList,
                 onToggleFilterMode: coordinator.toggleFilterMode,
@@ -275,33 +275,33 @@ private struct ContentViewLayout: View {
                 onRenameList: coordinator.presentRenameList,
                 onDeleteList: coordinator.presentDeleteList,
                 onDeleteCompleted: {
-                    onDeleteCompleted(readModel.completedTasks)
+                    onDeleteCompleted(projection.completedTasks)
                 },
                 onSortChanged: { option in
-                    readModel.selectedList?.sort = option
+                    projection.selectedList?.sort = option
                 },
-                currentSort: readModel.currentSort
+                currentSort: projection.currentSort
             )
 
             Divider()
 
             AddTaskView(
-                list: readModel.selectedList,
-                nextSortOrder: readModel.nextSortOrder,
+                list: projection.selectedList,
+                nextSortOrder: projection.nextSortOrder,
                 actions: addTaskActions
             )
 
             Divider()
 
             TaskListContentView(
-                readModel: readModel,
+                projection: projection,
                 expandedTaskID: coordinator.expandedTaskID,
                 onTapTask: toggleExpandedTask,
                 onCompleteTask: onCompleteTask,
                 completedTaskActions: completedTaskActions,
                 taskRowActions: taskRowActions,
                 onDeleteCompleted: {
-                    onDeleteCompleted(readModel.completedTasks)
+                    onDeleteCompleted(projection.completedTasks)
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -316,7 +316,7 @@ private struct ContentViewLayout: View {
 }
 
 private struct TaskListContentView: View {
-    let readModel: ContentViewReadModel
+    let projection: ContentViewProjection
     let expandedTaskID: UUID?
     let onTapTask: (TaskItem) -> Void
     let onCompleteTask: (TaskItem) -> Void
@@ -328,7 +328,7 @@ private struct TaskListContentView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 TaskSectionListView(
-                    readModel: readModel,
+                    projection: projection,
                     expandedTaskID: expandedTaskID,
                     onTapTask: onTapTask,
                     onCompleteTask: onCompleteTask,
@@ -336,7 +336,7 @@ private struct TaskListContentView: View {
                 )
 
                 CompletedTasksSection(
-                    tasks: readModel.completedTasks,
+                    tasks: projection.completedTasks,
                     onDeleteAll: onDeleteCompleted,
                     actions: completedTaskActions
                 )
