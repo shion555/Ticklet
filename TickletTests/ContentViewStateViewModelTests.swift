@@ -54,6 +54,20 @@ struct ContentViewCoordinatorTests {
         #expect(viewModel.filterMode == .all)
     }
 
+    @Test func selectingListAndTogglingFilterDoNotClearExpandedTask() {
+        let viewModel = ContentViewCoordinator()
+        let taskID = UUID()
+        let listID = UUID()
+
+        viewModel.expandedTaskID = taskID
+        viewModel.selectList(listID)
+        viewModel.toggleFilterMode()
+
+        #expect(viewModel.selectedListID == listID)
+        #expect(viewModel.filterMode == .starred)
+        #expect(viewModel.expandedTaskID == taskID)
+    }
+
     @Test func bootstrapPrefersDefaultThenFirstAndKeepsExistingSelection() {
         let container = try! SwiftDataTestSupport.makeContainer()
         let context = ModelContext(container)
@@ -103,6 +117,23 @@ struct ContentViewCoordinatorTests {
         #expect(viewModel.selectedListID == fallbackID)
         #expect(viewModel.isPresentingDeleteConfirm == false)
         #expect(viewModel.listToDelete == nil)
+    }
+
+    @Test func confirmDeleteListIsNoOpWhenNoListIsPendingDeletion() throws {
+        let container = try SwiftDataTestSupport.makeContainer()
+        let context = ModelContext(container)
+        let listService = ListMutationService(modelContext: context)
+        let viewModel = ContentViewCoordinator()
+        let list = TaskList(name: "Work")
+        context.insert(list)
+        viewModel.selectedListID = list.id
+
+        viewModel.confirmDeleteList(using: listService, existingLists: [list])
+
+        let lists = try SwiftDataTestSupport.fetchLists(in: context)
+        #expect(lists.map(\.id) == [list.id])
+        #expect(viewModel.selectedListID == list.id)
+        #expect(viewModel.isPresentingDeleteConfirm == false)
     }
 
     @Test func confirmDeleteListStillDeletesWhenPresentationFlagIsAlreadyFalse() throws {
