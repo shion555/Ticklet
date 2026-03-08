@@ -8,33 +8,19 @@ struct CreateListPopover: View {
     @State private var name = ""
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("新しいリスト")
-                .font(.headline)
-
-            TextField("リスト名", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("create-list-field")
-                .onSubmit { create() }
-
-            HStack {
-                Button("キャンセル") { isPresented = false }
-                Spacer()
-                Button("作成") { create() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .accessibilityIdentifier("create-list-submit")
-            }
-        }
-        .padding()
-        .frame(width: 240)
+        ListEditorPopover(
+            title: "新しいリスト",
+            submitLabel: "作成",
+            name: $name,
+            isPresented: $isPresented,
+            fieldAccessibilityIdentifier: "create-list-field",
+            submitAccessibilityIdentifier: "create-list-submit",
+            onSubmit: create
+        )
     }
 
     private func create() {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        actions.createList(trimmed, existingCount)
-        isPresented = false
+        actions.createList(name, existingCount)
     }
 }
 
@@ -46,33 +32,70 @@ struct RenameListPopover: View {
     @State private var name: String = ""
 
     var body: some View {
+        let initialName = list.name
+
+        ListEditorPopover(
+            title: "リスト名を変更",
+            submitLabel: "変更",
+            name: $name,
+            isPresented: $isPresented,
+            fieldAccessibilityIdentifier: "rename-list-field",
+            submitAccessibilityIdentifier: "rename-list-submit",
+            onSubmit: rename
+        )
+        .onAppear {
+            name = initialName
+        }
+        .onChange(of: initialName) { _, newValue in
+            name = newValue
+        }
+    }
+
+    private func rename() {
+        actions.renameList(list, name)
+    }
+}
+
+private struct ListEditorPopover: View {
+    let title: String
+    let submitLabel: String
+    @Binding var name: String
+    @Binding var isPresented: Bool
+    let fieldAccessibilityIdentifier: String
+    let submitAccessibilityIdentifier: String
+    let onSubmit: () -> Void
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
+
+    var body: some View {
         VStack(spacing: 12) {
-            Text("リスト名を変更")
+            Text(title)
                 .font(.headline)
 
             TextField("リスト名", text: $name)
                 .textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("rename-list-field")
-                .onSubmit { rename() }
+                .accessibilityIdentifier(fieldAccessibilityIdentifier)
+                .onSubmit { submit() }
 
             HStack {
                 Button("キャンセル") { isPresented = false }
                 Spacer()
-                Button("変更") { rename() }
+                Button(submitLabel) { submit() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .accessibilityIdentifier("rename-list-submit")
+                    .disabled(trimmedName.isEmpty)
+                    .accessibilityIdentifier(submitAccessibilityIdentifier)
             }
         }
         .padding()
         .frame(width: 240)
-        .onAppear { name = list.name }
     }
 
-    private func rename() {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        actions.renameList(list, trimmed)
+    private func submit() {
+        name = trimmedName
+        guard !name.isEmpty else { return }
+        onSubmit()
         isPresented = false
     }
 }
