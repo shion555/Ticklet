@@ -3,4 +3,5 @@
 .playwright-cli/
 xcuserdata/
 DerivedData/
+build/
 *.xcscmblueprint
