@@ -181,6 +181,8 @@ struct ContentViewProjectionTests {
     @Test func groupedActiveTasksKeepDateSectionOrder() {
         let list = TaskList(name: "A")
         list.sort = .date
+        let calendar = Self.testCalendar
+        let now = Self.date(2026, 3, 8, 12)
         let none = makeTask(title: "none", list: list)
         let today = Self.makeLinkedTask(title: "today", list: list, createdAt: Self.date(2026, 3, 8, 8), dueDate: Self.date(2026, 3, 8, 10), sortOrder: 0)
         let later = Self.makeLinkedTask(title: "later", list: list, createdAt: Self.date(2026, 3, 8, 9), dueDate: Self.date(2026, 3, 12, 10), sortOrder: 1)
@@ -191,12 +193,12 @@ struct ContentViewProjectionTests {
             allTasks: tasks,
             selectedListID: list.id,
             filterMode: .all,
-            calendar: Self.testCalendar,
-            now: Self.date(2026, 3, 8, 12)
+            calendar: calendar,
+            now: now
         )
 
         let expectedSections = [today, later, none]
-            .map { DateSection.section(for: $0.dueDate, calendar: .current, now: Date()) }
+            .map { DateSection.section(for: $0.dueDate, calendar: calendar, now: now) }
             .sorted()
 
         #expect(projection.groupedActiveTasks.map(\.section) == expectedSections)
@@ -288,6 +290,8 @@ struct ContentViewProjectionTests {
     @Test func dueDateGroupingKeepsSectionOrder() {
         let list = TaskList(name: "A")
         list.sort = .dueDate
+        let calendar = Self.testCalendar
+        let now = Self.date(2026, 3, 8, 12)
         let noDue = Self.makeLinkedTask(title: "noDue", list: list, createdAt: Self.date(2026, 3, 8, 9), dueDate: nil, sortOrder: 0)
         let tomorrow = Self.makeLinkedTask(title: "tomorrow", list: list, createdAt: Self.date(2026, 3, 8, 8), dueDate: Self.date(2026, 3, 9, 8), sortOrder: 1)
         let today = Self.makeLinkedTask(title: "today", list: list, createdAt: Self.date(2026, 3, 8, 7), dueDate: Self.date(2026, 3, 8, 10), sortOrder: 2)
@@ -298,7 +302,7 @@ struct ContentViewProjectionTests {
         let projection = makeProjection(list: list, tasks: tasks)
 
         let expectedSections = [overdue, today, tomorrow, upcoming, noDue]
-            .map { DateSection.section(for: $0.dueDate, calendar: .current, now: Date()) }
+            .map { DateSection.section(for: $0.dueDate, calendar: calendar, now: now) }
             .sorted()
 
         #expect(projection.groupedActiveTasks.map(\.section) == expectedSections)
