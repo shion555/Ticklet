@@ -10,8 +10,6 @@ struct TaskRowView: View {
     @State private var isHovering = false
     @FocusState private var titleFocused: Bool
     @FocusState private var detailsFocused: Bool
-    @State private var showDatePicker = false
-    @State private var pickerDate = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -43,8 +41,6 @@ struct TaskRowView: View {
                     ),
                     dueDate: task.dueDate,
                     detailsFocused: $detailsFocused,
-                    showDatePicker: $showDatePicker,
-                    pickerDate: $pickerDate,
                     onSelectToday: { selectToday() },
                     onSelectTomorrow: { selectTomorrow() },
                     onUpdateDueDate: { newDate in
@@ -53,10 +49,7 @@ struct TaskRowView: View {
                 )
             }
 
-            let subtasks = (task.subtasks).sorted { $0.sortOrder < $1.sortOrder }
-            ForEach(subtasks) { sub in
-                SubtaskRowView(subtask: sub, actions: actions.subtaskActions)
-            }
+            TaskRowSubtasksView(subtasks: task.subtasks, actions: actions.subtaskActions)
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
@@ -93,6 +86,17 @@ struct TaskRowView: View {
                 to: Calendar.current.startOfDay(for: Date())
             )
         )
+    }
+}
+
+private struct TaskRowSubtasksView: View {
+    let subtasks: [TaskItem]
+    let actions: SubtaskActions
+
+    var body: some View {
+        ForEach(subtasks.sorted { $0.sortOrder < $1.sortOrder }) { subtask in
+            SubtaskRowView(subtask: subtask, actions: actions)
+        }
     }
 }
 

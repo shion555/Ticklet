@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TaskRowDateControlsView: View {
     let dueDate: Date?
-    @Binding var showDatePicker: Bool
+    @Binding var isShowingDatePicker: Bool
     @Binding var pickerDate: Date
     let onSelectToday: () -> Void
     let onSelectTomorrow: () -> Void
@@ -26,39 +26,25 @@ struct TaskRowDateControlsView: View {
 
             Button {
                 pickerDate = dueDate ?? Date()
-                showDatePicker.toggle()
+                isShowingDatePicker.toggle()
             } label: {
                 Label("日付", systemImage: "calendar")
                     .font(.caption)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .popover(isPresented: $showDatePicker) {
-                VStack {
-                    DatePicker("", selection: $pickerDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                        .onChange(of: pickerDate) { _, newValue in
-                            onUpdateDueDate(newValue)
-                        }
-
-                    HStack {
-                        Button("削除") {
-                            onUpdateDueDate(nil)
-                            showDatePicker = false
-                        }
-                        .foregroundStyle(.red)
-
-                        Spacer()
-
-                        Button("閉じる") {
-                            showDatePicker = false
-                        }
+            .popover(isPresented: $isShowingDatePicker) {
+                TaskDatePickerPopoverContent(
+                    selectedDate: $pickerDate,
+                    onDateChanged: onUpdateDueDate,
+                    onClear: {
+                        onUpdateDueDate(nil)
+                        isShowingDatePicker = false
+                    },
+                    onClose: {
+                        isShowingDatePicker = false
                     }
-                    .padding(.horizontal)
-                }
-                .padding()
-                .frame(width: 280)
+                )
             }
 
             if let dueDate {

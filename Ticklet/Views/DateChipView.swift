@@ -27,31 +27,17 @@ struct DateChipView: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showingPicker) {
-            VStack(spacing: 8) {
-                DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                    .onChange(of: selectedDate) { _, newValue in
-                        onDateChanged(newValue)
-                    }
-
-                HStack {
-                    Button("削除") {
-                        onDateChanged(nil)
-                        showingPicker = false
-                    }
-                    .foregroundStyle(.red)
-
-                    Spacer()
-
-                    Button("閉じる") {
-                        showingPicker = false
-                    }
+            TaskDatePickerPopoverContent(
+                selectedDate: $selectedDate,
+                onDateChanged: onDateChanged,
+                onClear: {
+                    onDateChanged(nil)
+                    showingPicker = false
+                },
+                onClose: {
+                    showingPicker = false
                 }
-                .padding(.horizontal)
-            }
-            .padding()
-            .frame(width: 280)
+            )
         }
     }
 
@@ -64,5 +50,35 @@ struct DateChipView: View {
         case .normal:
             return .secondary
         }
+    }
+}
+
+struct TaskDatePickerPopoverContent: View {
+    @Binding var selectedDate: Date
+    let onDateChanged: (Date?) -> Void
+    let onClear: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .onChange(of: selectedDate) { _, newValue in
+                    onDateChanged(newValue)
+                }
+
+            HStack {
+                Button("削除", action: onClear)
+                    .foregroundStyle(.red)
+
+                Spacer()
+
+                Button("閉じる", action: onClose)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .frame(width: 280)
     }
 }
