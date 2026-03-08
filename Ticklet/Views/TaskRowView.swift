@@ -1,22 +1,17 @@
 import SwiftUI
-import SwiftData
 
 struct TaskRowView: View {
     @Bindable var task: TaskItem
-    @Environment(\.modelContext) private var modelContext
     let isExpanded: Bool
     let onTap: () -> Void
     let onComplete: () -> Void
+    let actions: TaskRowActions
 
     @State private var isHovering = false
     @FocusState private var titleFocused: Bool
     @FocusState private var detailsFocused: Bool
     @State private var showDatePicker = false
     @State private var pickerDate = Date()
-
-    private var taskMutationService: TaskMutationService {
-        TaskMutationService(modelContext: modelContext)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -32,10 +27,10 @@ struct TaskRowView: View {
                 onTap: onTap,
                 onComplete: onComplete,
                 onToggleStar: {
-                    withAnimation { taskMutationService.toggleStar(for: task) }
+                    actions.toggleTaskStar(task)
                 },
                 onUpdateDueDate: { newDate in
-                    taskMutationService.updateDueDate(for: task, to: newDate)
+                    actions.setTaskDueDate(task, newDate)
                 }
             )
 
@@ -53,14 +48,14 @@ struct TaskRowView: View {
                     onSelectToday: { selectToday() },
                     onSelectTomorrow: { selectTomorrow() },
                     onUpdateDueDate: { newDate in
-                        taskMutationService.updateDueDate(for: task, to: newDate)
+                        actions.setTaskDueDate(task, newDate)
                     }
                 )
             }
 
             let subtasks = (task.subtasks).sorted { $0.sortOrder < $1.sortOrder }
             ForEach(subtasks) { sub in
-                SubtaskRowView(subtask: sub)
+                SubtaskRowView(subtask: sub, actions: actions.subtaskActions)
             }
         }
         .padding(.vertical, 2)
@@ -72,30 +67,27 @@ struct TaskRowView: View {
                 isStarred: task.isStarred,
                 onAddSubtask: addSubtask,
                 onToggleStar: {
-                    withAnimation { taskMutationService.toggleStar(for: task) }
+                    actions.toggleTaskStar(task)
                 },
                 onDeleteTask: {
-                    withAnimation { taskMutationService.deleteTask(task) }
+                    actions.deleteTask(task)
                 }
             )
         }
     }
 
     private func addSubtask() {
-        taskMutationService.addSubtask(title: "", to: task)
+        actions.addSubtask(task)
     }
 
     private func selectToday() {
-        taskMutationService.updateDueDate(
-            for: task,
-            to: Calendar.current.startOfDay(for: Date())
-        )
+        actions.setTaskDueDate(task, Calendar.current.startOfDay(for: Date()))
     }
 
     private func selectTomorrow() {
-        taskMutationService.updateDueDate(
-            for: task,
-            to: Calendar.current.date(
+        actions.setTaskDueDate(
+            task,
+            Calendar.current.date(
                 byAdding: .day,
                 value: 1,
                 to: Calendar.current.startOfDay(for: Date())

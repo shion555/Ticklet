@@ -5,6 +5,7 @@ struct TaskSectionListView: View {
     let expandedTaskID: UUID?
     let onTapTask: (TaskItem) -> Void
     let onCompleteTask: (TaskItem) -> Void
+    let taskRowActions: TaskRowActions
 
     var body: some View {
         if readModel.showsGroupedActiveTasks {
@@ -45,7 +46,8 @@ struct TaskSectionListView: View {
             task: task,
             isExpanded: expandedTaskID == task.id,
             onTap: { onTapTask(task) },
-            onComplete: { onCompleteTask(task) }
+            onComplete: { onCompleteTask(task) },
+            actions: taskRowActions
         )
         .padding(.horizontal, 12)
         .padding(.vertical, 2)
