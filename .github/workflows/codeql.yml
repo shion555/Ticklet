@@ -36,7 +36,7 @@ jobs:
           build-mode: manual
 
       - name: Build app for CodeQL
-        run: xcodebuild -scheme Ticklet -project Ticklet.xcodeproj -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -target Ticklet -project Ticklet.xcodeproj CODE_SIGNING_ALLOWED=NO build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
