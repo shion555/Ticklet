@@ -114,13 +114,10 @@ final class TickletUITests: XCTestCase {
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
         deleteButton.click()
 
-        let picker = app.descendants(matching: .any)["header-list-picker"]
-        XCTAssertTrue(picker.waitForExistence(timeout: 2))
-
         openHeaderActionsMenu(app: app)
         XCTAssertFalse(app.menuItems["リストを削除"].waitForExistence(timeout: 1))
 
-        picker.click()
+        openListPicker(app: app)
         XCTAssertFalse(app.menuItems[listName].waitForExistence(timeout: 1))
     }
 
@@ -142,11 +139,9 @@ final class TickletUITests: XCTestCase {
 
         app.typeKey(.escape, modifierFlags: [])
 
-        XCTAssertFalse(app.descendants(matching: .any)["delete-list-dialog"].exists)
+        XCTAssertFalse(dialog.waitForExistence(timeout: 1))
 
-        let picker = app.descendants(matching: .any)["header-list-picker"]
-        XCTAssertTrue(picker.waitForExistence(timeout: 2))
-        picker.click()
+        openListPicker(app: app)
         XCTAssertTrue(app.menuItems[listName].waitForExistence(timeout: 2))
     }
 
@@ -205,10 +200,12 @@ private extension TickletUITests {
         app.launch()
         let statusItem = app.statusItems.firstMatch
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
-        statusItem.click()
         let addTaskField = app.descendants(matching: .any)["add-task-field"]
-        if !addTaskField.waitForExistence(timeout: 2) {
+        for _ in 0..<3 {
             statusItem.click()
+            if addTaskField.waitForExistence(timeout: 2) {
+                return app
+            }
         }
         XCTAssertTrue(addTaskField.waitForExistence(timeout: 2))
         return app
