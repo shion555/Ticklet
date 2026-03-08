@@ -1,15 +1,10 @@
 import SwiftUI
-import SwiftData
 
 struct CompletedTasksSection: View {
-    @Environment(\.modelContext) private var modelContext
     let tasks: [TaskItem]
     let onDeleteAll: () -> Void
+    let actions: CompletedTaskActions
     @State private var isExpanded = false
-
-    private var taskMutationService: TaskMutationService {
-        TaskMutationService(modelContext: modelContext)
-    }
 
     var body: some View {
         if !tasks.isEmpty {
@@ -18,14 +13,10 @@ struct CompletedTasksSection: View {
                     CompletedTaskRowView(
                         task: task,
                         onMarkIncomplete: {
-                            withAnimation {
-                                taskMutationService.markTaskIncomplete(task)
-                            }
+                            actions.markIncomplete(task)
                         },
                         onDelete: {
-                            withAnimation {
-                                taskMutationService.deleteTask(task)
-                            }
+                            actions.deleteCompletedTask(task)
                         }
                     )
                 }

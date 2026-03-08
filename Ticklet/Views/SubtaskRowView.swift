@@ -1,20 +1,13 @@
 import SwiftUI
-import SwiftData
 
 struct SubtaskRowView: View {
     @Bindable var subtask: TaskItem
-    @Environment(\.modelContext) private var modelContext
-
-    private var taskMutationService: TaskMutationService {
-        TaskMutationService(modelContext: modelContext)
-    }
+    let actions: SubtaskActions
 
     var body: some View {
         HStack(spacing: 6) {
             Button {
-                withAnimation {
-                    taskMutationService.toggleSubtaskCompletion(subtask)
-                }
+                actions.toggleSubtaskCompletion(subtask)
             } label: {
                 Image(systemName: subtask.isCompleted ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(subtask.isCompleted ? .gray : .blue)
@@ -31,9 +24,7 @@ struct SubtaskRowView: View {
         .padding(.leading, 24)
         .contextMenu {
             Button(role: .destructive) {
-                withAnimation {
-                    taskMutationService.deleteTask(subtask)
-                }
+                actions.deleteSubtask(subtask)
             } label: {
                 Label("削除", systemImage: "trash")
             }

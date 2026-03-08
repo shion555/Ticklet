@@ -1,17 +1,12 @@
 import SwiftUI
-import SwiftData
 
 struct AddTaskView: View {
-    @Environment(\.modelContext) private var modelContext
     let list: TaskList?
     let nextSortOrder: Int
+    let actions: AddTaskActions
 
     @State private var title = ""
     @FocusState private var isFocused: Bool
-
-    private var taskMutationService: TaskMutationService {
-        TaskMutationService(modelContext: modelContext)
-    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -35,17 +30,7 @@ struct AddTaskView: View {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        withAnimation {
-            taskMutationService.addTask(
-                title: trimmed,
-                note: "",
-                dueDate: nil,
-                recurrenceRule: nil,
-                isStarred: false,
-                sortOrder: nextSortOrder,
-                list: list
-            )
-            title = ""
-        }
+        actions.addQuickTask(trimmed, list, nextSortOrder)
+        title = ""
     }
 }
