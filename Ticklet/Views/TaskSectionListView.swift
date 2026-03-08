@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct TaskSectionListView: View {
-    let readModel: ContentViewReadModel
+    let projection: ContentViewProjection
     let expandedTaskID: UUID?
     let onTapTask: (TaskItem) -> Void
     let onCompleteTask: (TaskItem) -> Void
     let taskRowActions: TaskRowActions
 
     var body: some View {
-        if readModel.showsGroupedActiveTasks {
+        if projection.showsGroupedActiveTasks {
             groupedList
         } else {
             flatList
@@ -17,7 +17,7 @@ struct TaskSectionListView: View {
 
     @ViewBuilder
     private var flatList: some View {
-        ForEach(readModel.activeTasks) { task in
+        ForEach(projection.activeTasks) { task in
             taskRow(task)
             Divider().padding(.leading, 12)
         }
@@ -25,7 +25,7 @@ struct TaskSectionListView: View {
 
     @ViewBuilder
     private var groupedList: some View {
-        ForEach(readModel.groupedActiveTasks, id: \.section) { group in
+        ForEach(projection.groupedActiveTasks, id: \.section) { group in
             Text(TaskDatePresentation.sectionTitle(for: group.section))
                 .font(.caption)
                 .fontWeight(.semibold)
