@@ -110,14 +110,16 @@ final class TickletUITests: XCTestCase {
         XCTAssertTrue(dialog.waitForExistence(timeout: 2))
         XCTAssertTrue(app.statusItems.firstMatch.exists)
 
-        let deleteButton = app.buttons["delete-list-confirm"]
+        let deleteButton = app.buttons["削除"]
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 2))
         deleteButton.click()
 
-        XCTAssertTrue(app.staticTexts["マイタスク"].waitForExistence(timeout: 2))
-
         let picker = app.descendants(matching: .any)["header-list-picker"]
         XCTAssertTrue(picker.waitForExistence(timeout: 2))
+
+        openHeaderActionsMenu(app: app)
+        XCTAssertFalse(app.menuItems["リストを削除"].waitForExistence(timeout: 1))
+
         picker.click()
         XCTAssertFalse(app.menuItems[listName].waitForExistence(timeout: 1))
     }
@@ -135,9 +137,10 @@ final class TickletUITests: XCTestCase {
         XCTAssertTrue(deleteItem.waitForExistence(timeout: 2))
         deleteItem.click()
 
-        let cancelButton = app.buttons["delete-list-cancel"]
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: 2))
-        cancelButton.click()
+        let dialog = app.descendants(matching: .any)["delete-list-dialog"]
+        XCTAssertTrue(dialog.waitForExistence(timeout: 2))
+
+        app.typeKey(.escape, modifierFlags: [])
 
         XCTAssertFalse(app.descendants(matching: .any)["delete-list-dialog"].exists)
 
@@ -270,11 +273,12 @@ private extension TickletUITests {
 
     @MainActor
     func openHeaderActionsMenu(app: XCUIApplication) {
-        let menu = app.buttons["header-actions-menu"]
+        let menu = app.descendants(matching: .any)["header-actions-menu"]
         if !menu.waitForExistence(timeout: 2) {
             let statusItem = app.statusItems.firstMatch
             XCTAssertTrue(statusItem.waitForExistence(timeout: 2))
             statusItem.click()
+            XCTAssertTrue(menu.waitForExistence(timeout: 2))
         }
         XCTAssertTrue(menu.waitForExistence(timeout: 2))
         menu.click()
