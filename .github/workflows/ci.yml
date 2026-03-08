@@ -23,4 +23,11 @@ jobs:
         run: xcodebuild -version
 
       - name: Run tests
-        run: xcodebuild test -project Ticklet.xcodeproj -scheme Ticklet -destination 'platform=macOS'
+        run: >
+          xcodebuild test
+          -project Ticklet.xcodeproj
+          -scheme Ticklet
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          CODE_SIGN_IDENTITY=""
