@@ -5,8 +5,6 @@ struct TaskRowDetailsView: View {
     @Binding var recurrenceRule: RecurrenceRule?
     let dueDate: Date?
     let detailsFocused: FocusState<Bool>.Binding
-    @Binding var showDatePicker: Bool
-    @Binding var pickerDate: Date
     let onSelectToday: () -> Void
     let onSelectTomorrow: () -> Void
     let onUpdateDueDate: (Date?) -> Void
@@ -21,10 +19,8 @@ struct TaskRowDetailsView: View {
                 .lineLimit(1...5)
                 .padding(.leading, 28)
 
-            TaskRowDateControlsView(
+            TaskRowDateSectionView(
                 dueDate: dueDate,
-                showDatePicker: $showDatePicker,
-                pickerDate: $pickerDate,
                 onSelectToday: onSelectToday,
                 onSelectTomorrow: onSelectTomorrow,
                 onUpdateDueDate: onUpdateDueDate
@@ -35,5 +31,29 @@ struct TaskRowDetailsView: View {
                 .padding(.leading, 28)
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+}
+
+private struct TaskRowDateSectionView: View {
+    let dueDate: Date?
+    let onSelectToday: () -> Void
+    let onSelectTomorrow: () -> Void
+    let onUpdateDueDate: (Date?) -> Void
+
+    @State private var isShowingDatePicker = false
+    @State private var pickerDate = Date()
+
+    var body: some View {
+        TaskRowDateControlsView(
+            dueDate: dueDate,
+            isShowingDatePicker: $isShowingDatePicker,
+            pickerDate: $pickerDate,
+            onSelectToday: onSelectToday,
+            onSelectTomorrow: onSelectTomorrow,
+            onUpdateDueDate: onUpdateDueDate
+        )
+        .onChange(of: dueDate) { _, newValue in
+            pickerDate = newValue ?? Date()
+        }
     }
 }
