@@ -1,0 +1,42 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "0 18 * * 0"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - swift
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+
+      - name: Build app for CodeQL
+        run: xcodebuild -target Ticklet -project Ticklet.xcodeproj CODE_SIGNING_ALLOWED=NO build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
